@@ -58,6 +58,10 @@ NESTED_GIT_PUSH = re.compile(r"(?<![\w-])git(?:\.exe)?\s+(?:\S+\s+)*?push\b", re
 NESTED_GIT_BROAD_ADD = re.compile(
     r"(?<![\w-])git(?:\.exe)?\s+add\s+(?:\S+\s+)*?(-A|--all|\.)(?=\s|$|[\"'])"
 )
+# Token `git` w dowolnym miejscu polecenia. Trafienie uruchamia pełną kontrolę
+# check_git, bo regexy wyżej nie rozpoznają globalnych opcji (git -C ...) ani
+# destrukcyjnych flag w zagnieżdżonym push.
+NESTED_GIT_TOKEN = re.compile(r"(?<![\w-])git(?:\.exe)?(?![\w-])", re.IGNORECASE)
 
 GIT_OPTS_WITH_VALUE = frozenset({
     "-C", "-c", "--git-dir", "--work-tree", "--namespace", "--super-prefix", "--config-env",
@@ -214,7 +218,7 @@ def check_git(args: list[str], findings: Findings) -> None:
             findings.add(ASK, "git push publikuje zmiany w zdalnym repozytorium. Potwierdź gałąź i zakres.")
 
 
-def check_segment(segment: str, findings: Findings) -> None:
+def check_segment(segment: str, findings: Findings, depth: int = 0) -> None:
     tokens = _tokens(segment)
     while tokens and re.match(r"^[A-Za-z_]\w*=", tokens[0]):
         tokens = tokens[1:]
@@ -228,6 +232,23 @@ def check_segment(segment: str, findings: Findings) -> None:
     if head in READERS:
         return
 
+    # Zagnieżdżony git przechodzi tę samą kontrolę co wywołanie bezpośrednie.
+    # Wcześniej decydował tu wyłącznie regex, więc `git -C /repo add .` nie dawał
+    # żadnej decyzji, a `git -C /repo push --force` kończył się ASK zamiast DENY.
+    for index, token in enumerate(tokens[1:], start=1):
+        if _cmd_name(token) == "git":
+            check_git(tokens[index + 1 :], findings)
+        elif (
+            depth < 3
+            and NESTED_GIT_TOKEN.search(token)
+            and len(token.split()) > 1
+        ):
+            # Polecenie przekazane jako jeden cudzysłowany argument, np.
+            # bash -c "git -C /repo push --force origin main".
+            for inner in split_segments(token, "Bash"):
+                check_segment(inner, findings, depth + 1)
+
+    # Backstop na składnię, której tokenizer nie rozłoży.
     if NESTED_GIT_BROAD_ADD.search(segment):
         findings.add(DENY, "Zagnieżdżone szerokie dodanie plików do Git (add -A/.) jest zabronione.")
     elif NESTED_GIT_PUSH.search(segment):
