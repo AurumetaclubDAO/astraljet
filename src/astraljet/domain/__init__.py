@@ -1,0 +1,1 @@
+"""Model domenowy AstralJet."""

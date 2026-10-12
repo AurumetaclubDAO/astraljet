@@ -1,0 +1,16 @@
+﻿project_label;path;exists;app_says_git;git_root;branch;head;has_commit;tracking_state;worktree_changed;remotes
+karol;C:\Users\karol;True;False;;;;;;;
+.claude;C:\Users\karol\.claude;True;False;;;;;;;
+ai-voice-receptionist-cz;C:\Users\karol\ai-voice-receptionist-cz;True;True;C:/Users/karol/ai-voice-receptionist-cz;codex/project-stabilization;3d53acf0f84a9f9bf0e7f8a7a5b9b662bef97c06;True;## codex/project-stabilization...origin/codex/project-stabilization [ahead 4];True;"origin	https://github.com/SuperAI-maker/ai-voice-receptionist-cz.git (fetch)
+origin	https://github.com/SuperAI-maker/ai-voice-receptionist-cz.git (push)"
+AI-Voice-Receptionist-cz;c:\Users\karol\Documents\AI-Voice-Receptionist-cz;True;True;C:/Users/karol/Documents/AI-Voice-Receptionist-cz;codex/voice-router-pilot;97a55e85de2854cc4376533331f4cd07470d2492;True;## codex/voice-router-pilot...origin/codex/voice-router-pilot;True;"origin	https://github.com/SuperAI-maker/ai-voice-receptionist-cz.git (fetch)
+origin	https://github.com/SuperAI-maker/ai-voice-receptionist-cz.git (push)"
+Claude;C:\Users\karol\Documents\Claude;True;False;;;;;;;
+auruq;C:\Users\karol\Documents\Claude\Projects\Trading\auruq;True;True;C:/Users/karol/Documents/Claude/Projects/Trading/auruq;main;6ed8b20cd3144b8be4995d64f62eafb29f54f0e3;True;## main;True;
+ai-voice-receptionist-cz;C:\Users\karol\Documents\GitHub\ai-voice-receptionist-cz;True;True;C:/Users/karol/Documents/GitHub/ai-voice-receptionist-cz;main;20f7b020fd4d8ad77bc35f882b7cdaafc03439ec;True;## main...origin/main [ahead 27, behind 54];True;"origin	https://github.com/SuperAI-maker/ai-voice-receptionist-cz.git (fetch)
+origin	https://github.com/SuperAI-maker/ai-voice-receptionist-cz.git (push)"
+Socotra SM 062026;C:\Users\karol\Documents\Socotra SM 062026;True;False;;;;;;;
+Trading;C:\Users\karol\Documents\Claude\Projects\Trading;True;True;C:/Users/karol/Documents/Claude/Projects;main;;False;## No commits yet on main;False;
+Astra Jet;D:\Astra Jet;True;True;D:/Astra Jet;main;c14945af80633d86c1f8ad3bb342af8cea92f9d4;True;## main...origin/main [ahead 1];True;"origin	https://github.com/AurumetaclubDAO/astraljet.git (fetch)
+origin	https://github.com/AurumetaclubDAO/astraljet.git (push)"
+Aurumeta Club;C:\Users\karol\Desktop\Aurumeta Club;True;False;;;;;;;

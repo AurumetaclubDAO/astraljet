@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "astraljet"
+version = "0.1.0"
+description = "Bezpieczny, lokalny rdzeń badawczy i wykonawczy Astra JET"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+astraljet = "astraljet.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+# Zbieraj wyłącznie tests/. acceptance_test.py w korzeniu i w scripts/ to
+# skrypty odbiorcze, nie testy; pytest łapał je po konwencji nazwy, a wspólna
+# nazwa bazowa bez __init__.py przerywała kolekcję całego zestawu.
+testpaths = ["tests"]
+# Pakiet żyje w src/ i nie jest instalowany, więc bez tego uruchomienie testów
+# wymagało ręcznego PYTHONPATH=src.
+pythonpath = ["src"]

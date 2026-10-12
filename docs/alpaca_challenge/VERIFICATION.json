@@ -1,0 +1,74 @@
+{
+  "timestamp": "2026-09-30T13:40:19.895138+00:00",
+  "tests": {
+    "tests": 236,
+    "failures": 0,
+    "errors": 0
+  },
+  "challenge_tests": 49,
+  "health": {
+    "service": "astra-alpaca-challenge",
+    "pid": 44728,
+    "status": "degraded",
+    "paper_only": true,
+    "execute_orders": false,
+    "broker_reconciled": false,
+    "scanner_running": true,
+    "last_scan": "2026-09-30T13:39:30.375832+00:00",
+    "kill_switch": true,
+    "last_error": "reconciliation: Alpaca HTTP 401; GET /v2/account"
+  },
+  "unauthorized_status": 401,
+  "scanner": {
+    "running": true,
+    "last_scan": "2026-09-30T13:39:30.375832+00:00",
+    "last_error": "reconciliation: Alpaca HTTP 401; GET /v2/account",
+    "crypto": "BTC/USD,ETH/USD,SOL/USD,AVAX/USD",
+    "equities": "NVDA,AMD,COIN,MSTR,PLTR,TSLA,SPY,QQQ,IWM"
+  },
+  "audit_rows": 290,
+  "service_start_events": 5,
+  "broker_order_intents": 0,
+  "acceptance": {
+    "timestamp": "2026-09-30T13:38:05.725323+00:00",
+    "checks": {
+      "PAPER ONLY": {
+        "pass": true,
+        "detail": ""
+      },
+      "ACCOUNT": {
+        "pass": false,
+        "detail": "Alpaca HTTP 401; GET /v2/account"
+      },
+      "MARKET DATA": {
+        "pass": false,
+        "detail": "Alpaca HTTP 401; GET /v1beta3/crypto/us/latest/quotes"
+      },
+      "SCANNER": {
+        "pass": false,
+        "detail": "brak aktualnych danych"
+      },
+      "STRATEGY": {
+        "pass": false,
+        "detail": "brak aktualnych danych; testy fixture są osobne"
+      },
+      "RISK ENGINE": {
+        "pass": false,
+        "detail": "brak autoryzowanego konta/danych"
+      },
+      "DRY RUN": {
+        "pass": false,
+        "detail": "brak autoryzowanego konta/danych"
+      },
+      "KILL SWITCH": {
+        "pass": false,
+        "detail": "brak autoryzowanego konta/danych"
+      },
+      "JOURNAL": {
+        "pass": true,
+        "detail": ""
+      }
+    },
+    "result": "NOT READY"
+  }
+}

@@ -1,0 +1,11 @@
+﻿name;version;publisher;source
+Pulpit zdalny Chrome;1.0;Google\Chrome;HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall
+Claude Code;2.1.140;Anthropic PBC;HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall
+Python 3.12.10;3.12-64;Python Software Foundation;HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall
+Python 3.14.4;3.14-64;Python Software Foundation;HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall
+Microsoft Visual Studio Code (User);1.133.0;Microsoft Corporation;HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall
+Git;2.53.0.3;The Git Development Community;HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall
+Node.js;24.13.0;Node.js Foundation;HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall
+Google Chrome;154.0.8037.95;Google LLC;HKLM32\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall
+Microsoft Edge;154.0.4258.48;Microsoft Corporation;HKLM32\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall
+Środowisko uruchomieniowe Microsoft Edge WebView2;154.0.4258.48;Microsoft Corporation;HKLM32\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall

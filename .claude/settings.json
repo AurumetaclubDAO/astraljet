@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|Read|Edit|Write|MultiEdit|NotebookEdit|Grep|mcp__GitKraken__git_add|mcp__GitKraken__git_push",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "P='C:/Users/karol/AppData/Local/Python/pythoncore-3.12-64/python.exe'; [ -x \"$P\" ] || P=python; \"$P\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/straznik.py\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "idempotency_key": "documentation-expired-example",
+  "timestamp": "2020-01-01T00:00:00Z",
+  "strategy_id": "CRYPTO_BREAKOUT",
+  "symbol": "BTC/USD",
+  "asset_type": "crypto",
+  "direction": "LONG",
+  "setup_grade": "B",
+  "entry_type": "limit",
+  "entry_price": 100,
+  "stop_loss": 98,
+  "take_profit": 105,
+  "max_loss_usd": 5,
+  "confidence_components": {},
+  "reason": "Przykład schematu, nie aktualny sygnał. Musi zostać odrzucony.",
+  "position_intent": "buy_to_open",
+  "time_in_force": "gtc",
+  "extended_hours": false
+}
