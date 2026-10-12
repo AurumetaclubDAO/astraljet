@@ -1,0 +1,2 @@
+# Zależności lokalnego wykonawcy Alpaca; istniejący rdzeń pozostaje niezależny.
+-r requirements-alpaca.txt
