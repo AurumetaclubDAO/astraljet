@@ -51,3 +51,9 @@ Thumbs.db
 # Osobne repozytorium witryny. Dodane tutaj, bo jako katalog z własnym .git
 # trafiłoby do commita jako zepsuty gitlink. Docelowo submoduł albo osobny klon.
 /site-spotkania/
+
+# Inwentarz stacji roboczej (HEGEMONIKON/SENECA): sciezki uzytkownika,
+# identyfikatory projektow, remotes i galezie innych repozytoriow oraz spis
+# zainstalowanego oprogramowania z wersjami. Dane lokalne, niezwiazane
+# z dzialaniem AstralJet, a repozytorium jest publiczne.
+/docs/hegemonikon/
