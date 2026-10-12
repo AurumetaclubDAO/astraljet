@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://astraljet.local/contracts/event.schema.json",
+  "title": "AstralJet EVENT",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "occurred_at",
+    "recorded_at",
+    "actor",
+    "event_type",
+    "record_type",
+    "record_id",
+    "record_version",
+    "reason",
+    "outcome",
+    "payload",
+    "correlation_id",
+    "idempotency_key"
+  ],
+  "properties": {
+    "event_id": {"type": "string", "minLength": 8},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "recorded_at": {"type": "string", "format": "date-time"},
+    "actor": {"type": "string", "minLength": 1},
+    "event_type": {"type": "string", "minLength": 1},
+    "record_type": {
+      "enum": ["SRC", "CAND", "STRAT", "DATA", "EXP", "RUN", "REVIEW", "RISK_DECISION", "MANDATE", "INCU", "BUDGET_STATUS"]
+    },
+    "record_id": {"type": "string", "minLength": 8},
+    "record_version": {"type": "integer", "minimum": 1},
+    "reason": {"type": "string", "minLength": 1},
+    "outcome": {"type": "string", "minLength": 1},
+    "payload": {"type": "object"},
+    "correlation_id": {"type": "string", "minLength": 8},
+    "causation_id": {"type": ["string", "null"]},
+    "idempotency_key": {"type": "string", "minLength": 8}
+  }
+}

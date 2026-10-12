@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "checks": {
+    "projekty.csv": 24,
+    "pluginy.csv": 60,
+    "repozytoria.csv": 11,
+    "aplikacje.csv": 10,
+    "narzedzia.csv": 1724,
+    "karty_narzedzi.csv": 42,
+    "account_success": 6,
+    "account_errors": 2,
+    "repo_with_commit": 5
+  },
+  "scope": "Spójność pakietu i liczb; nie odbiór procesów biznesowych"
+}

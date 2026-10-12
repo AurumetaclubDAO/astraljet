@@ -1,0 +1,745 @@
+{
+  "version": "0.2",
+  "created_at": "2026-09-19T14:58:43+00:00",
+  "scope": "Dokumentacja architektury; bez wdrożenia kodu i bez uruchomienia strategii.",
+  "documents": [
+    {
+      "path": "ASTRA_PRO_TRADING_LAB_v0.1.md",
+      "bytes": 15369,
+      "sha256": "28dc06559d914f04cb1234e91e233b8d6920f85a6047ee2dc4bf3ee3c90965d0"
+    },
+    {
+      "path": "ASTRA_PRO_TRADING_LAB_v0.2.md",
+      "bytes": 34094,
+      "sha256": "dedf5c1144f3fc998b86bd7d6ff2c441af5561e3a7a4f2a1cadc14f0a49d4831"
+    },
+    {
+      "path": "ASTRALJET_KATALOG_ZRODEL_v0.2.csv",
+      "bytes": 22148,
+      "sha256": "deeea5b2ccc4fe4d4c6bc2af4ec2c7f108357d452e450bff505db16dd0354913"
+    },
+    {
+      "path": "ASTRALJET_ROLE_I_ZALEZNOSCI.csv",
+      "bytes": 26187,
+      "sha256": "640152c7f595c572a889194ab8e8c671a135fae121c7aa9414fe372158498f9c"
+    },
+    {
+      "path": "ASTRALJET_ROLE_I_ZALEZNOSCI_v0.1.csv",
+      "bytes": 18092,
+      "sha256": "cbe909077f50e3397a252186a8eeef7e8795d17d8639e2011f5dcb2ea8e70304"
+    },
+    {
+      "path": "ASTRALJET_ROLE_I_ZALEZNOSCI_v0.2.csv",
+      "bytes": 26187,
+      "sha256": "640152c7f595c572a889194ab8e8c671a135fae121c7aa9414fe372158498f9c"
+    },
+    {
+      "path": "ASTRALJET_STRUKTURA_v0.1.md",
+      "bytes": 38472,
+      "sha256": "dbe078b8aadfe3aa6a7f6298145c526e64ab7de581175dd7173662ea07946208"
+    },
+    {
+      "path": "ASTRALJET_STRUKTURA_v0.2.md",
+      "bytes": 51344,
+      "sha256": "b17f31a63b4c7705004c23ba22493a745d47af3ff89703c19f36cd31fdbf1122"
+    },
+    {
+      "path": "ASTRALJET_ZRODLA_I_DECYZJE_v0.2.md",
+      "bytes": 52345,
+      "sha256": "b8a2ebf8fd6d78f760b9b8bfeaf1b74a7a752b1dbf027b7d543fdf57be58efbc"
+    },
+    {
+      "path": "ODBIOR_DOKUMENTACJI_v0.2.md",
+      "bytes": 3404,
+      "sha256": "1264c94611d66c8de0264bb24a85e0a9f961c87c3e0a53eb4b3741b9a0348ae5"
+    },
+    {
+      "path": "START.md",
+      "bytes": 2317,
+      "sha256": "4b37b89f1fc073b58207d9fc87ade2dd3d5d38056361ba3cfd67c5326a461012"
+    },
+    {
+      "path": "START_v0.1.md",
+      "bytes": 1162,
+      "sha256": "df46f3c5ca7205a09ba8e163d7017b01a798583b7d07eca09cb84c1459ce5344"
+    },
+    {
+      "path": "ZAPIS_I_ZAKRES.md",
+      "bytes": 2870,
+      "sha256": "53252352752525c5d8ca33aef17e25354023d9d67098b6566f96b930ba25b2e2"
+    },
+    {
+      "path": "ZAPIS_I_ZAKRES_v0.1.md",
+      "bytes": 1445,
+      "sha256": "0594666d68b960ee17da9a7330a77bc91ff18bd7e19eeb51c8f5897af4242d71"
+    }
+  ],
+  "sources": [
+    {
+      "id": "SRC-001",
+      "name": "Handel Algorytmiczny GPT-6.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\Trading 2.0\\Handel Algorytmiczny GPT-6.pdf",
+      "location": "s. 1",
+      "use": "Ogólny przebieg: generowanie, test, inkubacja i wykonanie.",
+      "roles": "AJ-01, AJ-05, AJ-07, AJ-15",
+      "issues": "Opis filmu i deklaracje wydajności, bez kompletnej specyfikacji strategii.",
+      "pages": 1,
+      "sha256": "3a547345a3438dabf1ee08cfd59d31b3a8489f809615b4d21f2514d690d4ab98",
+      "bytes": 46902,
+      "kind": "PDF — opracowanie tekstowe",
+      "provenance": "Przekazany przez Karola jako materiał do AstralJet; według kontekstu z pakietu NotebookLM. Metadane: Skia/PDF Google Docs Renderer; brak autora. Opracowanie pochodne, nie nowy niezależny eksperyment.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-002",
+      "name": "Automatyzacja handlu AI.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\Trading 2.0\\Automatyzacja handlu AI.pdf",
+      "location": "s. 1",
+      "use": "Podział narzędzi na LLM, silnik testów, wykresy i wykonanie.",
+      "roles": "AJ-01, AJ-07, AJ-15, AJ-17",
+      "issues": "Deklaracje bezpłatności oraz adres traderdev.com wymagają weryfikacji; oficjalny hub wskazuje trader.dev.",
+      "pages": 1,
+      "sha256": "c2fc6e2c1402277459e3ccc8ce0c96f19ea7aa5f3cd238d452331d3b94d36739",
+      "bytes": 77989,
+      "kind": "PDF — opracowanie tekstowe",
+      "provenance": "Przekazany przez Karola jako materiał do AstralJet; według kontekstu z pakietu NotebookLM. Metadane: Skia/PDF Google Docs Renderer; brak autora. Opracowanie pochodne, nie nowy niezależny eksperyment.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-003",
+      "name": "GPT-6 jako Twój osobisty Quant_ Jak zbudowałem 184 strategie tradingowe w jeden dzień.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\Trading 2.0\\GPT-6 jako Twój osobisty Quant_ Jak zbudowałem 184 strategie tradingowe w jeden dzień.pdf",
+      "location": "s. 1: narzędzia i 184/96%; s. 2: sprint, metryki i inkubacja; s. 3: siedem botów",
+      "use": "Rejestr prób, raportowanie kosztu i etap obserwacji.",
+      "roles": "AJ-01, AJ-07, AJ-14, AJ-17",
+      "issues": "3130%, 184 strategie, 96% limitu i benchmark są deklaracjami autora opracowania. Brak danych i kodu do niezależnego odtworzenia.",
+      "pages": 3,
+      "sha256": "8f070cb3e87148c03b98104042c68f6906a407fe159ec5573c2cfcd060f44e15",
+      "bytes": 97597,
+      "kind": "PDF — opracowanie tekstowe",
+      "provenance": "Przekazany przez Karola jako materiał do AstralJet; według kontekstu z pakietu NotebookLM. Metadane: Skia/PDF Google Docs Renderer; brak autora. Opracowanie pochodne, nie nowy niezależny eksperyment.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-004",
+      "name": "Wskaźniki Analizy Botów.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\Trading 2.0\\Wskaźniki Analizy Botów.pdf",
+      "location": "s. 1",
+      "use": "Słownik PF, drawdown, wyniku netto, liczby transakcji i win rate.",
+      "roles": "AJ-07, AJ-08, AJ-09",
+      "issues": "Kilkaset transakcji nie daje pewności przewagi. PF 1,35 nie jest uniwersalnym progiem; podobny kształt krzywych nie wystarcza do oceny.",
+      "pages": 1,
+      "sha256": "2050adb0ddf3eddfdeb3cf16746e23af2f4b9609b42de98616a99f8bd11d40d5",
+      "bytes": 77686,
+      "kind": "PDF — opracowanie tekstowe",
+      "provenance": "Przekazany przez Karola jako materiał do AstralJet; według kontekstu z pakietu NotebookLM. Metadane: Skia/PDF Google Docs Renderer; brak autora. Opracowanie pochodne, nie nowy niezależny eksperyment.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-005",
+      "name": "Architektura Systemu AI Tradingowego_ Integracja GPT-6, Serwera MCP i TradingView.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\Trading 2.0\\Architektura Systemu AI Tradingowego_ Integracja GPT-6, Serwera MCP i TradingView.pdf",
+      "location": "s. 1: architektura; s. 2: integracja i sprint; s. 3: walidacja i most; s. 4: zasady",
+      "use": "Rozdział badania, narzędzi, raportowania i egzekucji.",
+      "roles": "AJ-01, AJ-05, AJ-07, AJ-09, AJ-15",
+      "issues": "Progi >600 transakcji, MDD <10%, PF >1,3 i 2 miesiące nie wynikają z decyzji Karola; przykładowy wynik SMA nie jest testem łączności. Twierdzenia o kluczach i eliminacji błędów poznawczych nie są przyjęte jako dowód.",
+      "pages": 4,
+      "sha256": "781177d0f4f5c582090ecf1cac6e3e484bc176696cb37edaa6ff47e6e5e2dd91",
+      "bytes": 130198,
+      "kind": "PDF — opracowanie tekstowe",
+      "provenance": "Przekazany przez Karola jako materiał do AstralJet; według kontekstu z pakietu NotebookLM. Metadane: Skia/PDF Google Docs Renderer; brak autora. Opracowanie pochodne, nie nowy niezależny eksperyment.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-006",
+      "name": "Przewodnik po Analizie Skuteczności Botów AI_ Od Backtestingu do Sukcesu.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\Trading 2.0\\Przewodnik po Analizie Skuteczności Botów AI_ Od Backtestingu do Sukcesu.pdf",
+      "location": "s. 1: metryki; s. 2: porównanie, inkubacja i 30 dni; s. 3: podsumowanie",
+      "use": "Kontrola jakości, zestawienie wyników i przegląd człowieka.",
+      "roles": "AJ-07, AJ-08, AJ-09",
+      "issues": "30 dni różni się od 2 miesięcy w SRC-005. PF nie oznacza przychodu na jednostkę ryzykowanego kapitału. Tysiące wariantów same nie usuwają ryzyka dopasowania.",
+      "pages": 3,
+      "sha256": "7967f9607e52e724d1c7514e062fb90ee19a32eb443aec5ad45695f9325d9856",
+      "bytes": 108063,
+      "kind": "PDF — opracowanie tekstowe",
+      "provenance": "Przekazany przez Karola jako materiał do AstralJet; według kontekstu z pakietu NotebookLM. Metadane: Skia/PDF Google Docs Renderer; brak autora. Opracowanie pochodne, nie nowy niezależny eksperyment.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-007",
+      "name": "Twój pierwszy bot giełdowy AI_ Kompletny przewodnik po automatyzacji badań i handlu.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\Trading 2.0\\Twój pierwszy bot giełdowy AI_ Kompletny przewodnik po automatyzacji badań i handlu.pdf",
+      "location": "s. 1: narzędzia; s. 2: SMA, pętla i raport; s. 3: automatyzacja",
+      "use": "Opis ścieżki użytkownika od materiału do weryfikacji.",
+      "roles": "AJ-00, AJ-01, AJ-05, AJ-07, AJ-15",
+      "issues": "PF >1,2 różni się od innych opracowań. Nie ma pełnych danych, dat i reguł umożliwiających odtworzenie przykładowych 4,74%. Instrukcje instalacji nie są zleceniem użytkownika.",
+      "pages": 3,
+      "sha256": "3f381dfc1462237b3e6b34b1c185ca69af0cf143236eac8d873a5455070f20fc",
+      "bytes": 130786,
+      "kind": "PDF — opracowanie tekstowe",
+      "provenance": "Przekazany przez Karola jako materiał do AstralJet; według kontekstu z pakietu NotebookLM. Metadane: Skia/PDF Google Docs Renderer; brak autora. Opracowanie pochodne, nie nowy niezależny eksperyment.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-008",
+      "name": "Inkubacja bota handlowego.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\Trading 2.0\\Inkubacja bota handlowego.pdf",
+      "location": "s. 1",
+      "use": "Osobna faza obserwacji po zamrożeniu strategii.",
+      "roles": "AJ-07, AJ-15, AJ-16",
+      "issues": "Kilka miesięcy to wskazówka materiału, nie uniwersalne kryterium ukończenia ani decyzja projektowa.",
+      "pages": 1,
+      "sha256": "f7623f8aebc4a5c4eba397104c72f7162525434b94a298ae397e2fbc26d69a0e",
+      "bytes": 59567,
+      "kind": "PDF — opracowanie tekstowe",
+      "provenance": "Przekazany przez Karola jako materiał do AstralJet; według kontekstu z pakietu NotebookLM. Metadane: Skia/PDF Google Docs Renderer; brak autora. Opracowanie pochodne, nie nowy niezależny eksperyment.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-009",
+      "name": "Strategia Zarządzania Portfelem Wieloagentowych Systemów Transakcyjnych AI.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\Trading 2.0\\Strategia Zarządzania Portfelem Wieloagentowych Systemów Transakcyjnych AI.pdf",
+      "location": "s. 1: generowanie; s. 2: walidacja i most; s. 3: portfel i zatrzymanie",
+      "use": "Wspólna ekspozycja, koszty i procedura reagowania na odchylenia.",
+      "roles": "AJ-08, AJ-09, AJ-14, AJ-15",
+      "issues": "Dokładnie siedem botów nie jest dowiedzionym progiem dywersyfikacji. Korelacja kształtu krzywych z różnych okresów nie jest wystarczającym kryterium. Kill switch wymaga określenia skutków dla istniejących pozycji.",
+      "pages": 3,
+      "sha256": "b88f19110e9fd61713dc4b95cb538961cbabbdee77af87b0ba677054af5b8bba",
+      "bytes": 100817,
+      "kind": "PDF — opracowanie tekstowe",
+      "provenance": "Przekazany przez Karola jako materiał do AstralJet; według kontekstu z pakietu NotebookLM. Metadane: Skia/PDF Google Docs Renderer; brak autora. Opracowanie pochodne, nie nowy niezależny eksperyment.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-010",
+      "name": "Instalacja PineScript w TradingView.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\Trading 2.0\\Instalacja PineScript w TradingView.pdf",
+      "location": "s. 1",
+      "use": "Przyszły eksport kodu i porównanie w drugim środowisku.",
+      "roles": "AJ-07, AJ-15",
+      "issues": "Instrukcja obsługi jest kontekstem przyszłego adaptera. Wklejenie kodu i wybór rodzaju alertu nie dowodzą zgodności realizacji ani ochrony przed powtórzeniami.",
+      "pages": 1,
+      "sha256": "93b9d62a77dcd4a2a9966c0693f08dde1b8bb9d05c80d9056ff51474d86553f8",
+      "bytes": 74275,
+      "kind": "PDF — opracowanie tekstowe",
+      "provenance": "Przekazany przez Karola jako materiał do AstralJet; według kontekstu z pakietu NotebookLM. Metadane: Skia/PDF Google Docs Renderer; brak autora. Opracowanie pochodne, nie nowy niezależny eksperyment.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-011",
+      "name": "GPT-6_Autonomous_Strategy_Factory.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\Trading 2.0\\GPT-6_Autonomous_Strategy_Factory.pdf",
+      "location": "slajdy 1–14; szczegółowa mapa poniżej",
+      "use": "Wizualny opis całego procesu i punktów przekazania pracy.",
+      "roles": "AJ-00–AJ-18 według mapy poniżej",
+      "issues": "Prezentacja jest obrazowa. Widoczny kod na slajdzie 8 jest ilustracją, nie kompletnym programem Pine do uruchomienia. Powtarza niezweryfikowane wyniki i deklaracje.",
+      "pages": 14,
+      "sha256": "db761baacbffc6f60099a8759ff65f626e96db9673c2d80dfcaddf824c350aa8",
+      "bytes": 14046916,
+      "kind": "PDF — prezentacja obrazowa",
+      "provenance": "Przekazany przez Karola jako materiał do AstralJet; według kontekstu z pakietu NotebookLM. Widoczny znak Gemini Notebook; brak autora w metadanych PDF.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-012",
+      "name": "Źródła Algorytmicznych Strategii.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\Trading 2.0\\Źródła Algorytmicznych Strategii.pdf",
+      "location": "s. 1",
+      "use": "Źródła kandydatów: publikacje, społeczność i własne hipotezy.",
+      "roles": "AJ-02, AJ-03, AJ-04",
+      "issues": "Baza 400+ i określenie gotowe do wdrożenia są deklaracjami. Dostępny ranking nie oznacza dostępu do kodu ani kwalifikacji do naszego DEMO.",
+      "pages": 1,
+      "sha256": "64a8b6f8e903ffc4ecd88eb3e5a87f355de514d40c2419bfdde51d0ed9473a55",
+      "bytes": 74493,
+      "kind": "PDF — opracowanie tekstowe",
+      "provenance": "Przekazany przez Karola jako materiał do AstralJet; według kontekstu z pakietu NotebookLM. Metadane: Skia/PDF Google Docs Renderer; brak autora. Opracowanie pochodne, nie nowy niezależny eksperyment.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-013",
+      "name": "Dywersyfikacja portfela bota.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\Trading 2.0\\Dywersyfikacja portfela bota.pdf",
+      "location": "s. 1",
+      "use": "Kontrola współzależności, koncentracji i łącznej ekspozycji.",
+      "roles": "AJ-09, AJ-14",
+      "issues": "Różne nazwy aktywów lub interwały nie potwierdzają niezależności wyników. Nie przyjmujemy gwarantowanej kompensacji strat.",
+      "pages": 1,
+      "sha256": "a32ea91eca167ad1fe8180e189fe42a52c3d05059d73e48a81a2995a9168e56a",
+      "bytes": 85939,
+      "kind": "PDF — opracowanie tekstowe",
+      "provenance": "Przekazany przez Karola jako materiał do AstralJet; według kontekstu z pakietu NotebookLM. Metadane: Skia/PDF Google Docs Renderer; brak autora. Opracowanie pochodne, nie nowy niezależny eksperyment.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-014",
+      "name": "NotebookLM Mind Map (2).png",
+      "path": "C:\\Users\\karol\\Downloads\\Trading 2.0\\NotebookLM Mind Map (2).png",
+      "location": "Gałęzie Required Tools, AI Strategy Research Loop, Validation and Testing, TradingView Integration, Live Automation Setup, Performance and Results.",
+      "use": "Mapa etapów i zależności; AJ-01, AJ-07, AJ-15, AJ-17.",
+      "roles": "Mapa etapów i zależności; AJ-01, AJ-07, AJ-15, AJ-17.",
+      "issues": "Mapa inspirowana tym samym materiałem; gałąź Live nie jest zgodą na uruchomienie rachunku realnego.",
+      "pages": null,
+      "sha256": "ebba8f69d85bfdd9bd0ae8e49290de0ba54cdba02bcd92508879c21ed86afd5f",
+      "bytes": 1087041,
+      "kind": "Grafika",
+      "provenance": "Załącznik użytkownika; mapa koncepcji, nie dowód działania systemu.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-015",
+      "name": "Budowa_bota_handlowego_AI.png",
+      "path": "C:\\Users\\karol\\Downloads\\Trading 2.0\\Budowa_bota_handlowego_AI.png",
+      "location": "Góra: narzędzia i sprint; dół: inkubacja, most, portfel.",
+      "use": "Czytelny schemat procesu; AJ-01, AJ-07, AJ-14, AJ-15.",
+      "roles": "Czytelny schemat procesu; AJ-01, AJ-07, AJ-14, AJ-15.",
+      "issues": "184/13/96% to ilustracja deklaracji, nie nasz benchmark. Znak Gemini Notebook wskazuje opracowanie.",
+      "pages": null,
+      "sha256": "139b2c9a2d25e6d86141ddb639d84613cea4c89dc4388ec543457a345f50414c",
+      "bytes": 3877201,
+      "kind": "Grafika",
+      "provenance": "Załącznik użytkownika; mapa koncepcji, nie dowód działania systemu.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-016",
+      "name": "ChatGPT Image 19 wrz 2026, 14_13_48.png",
+      "path": "C:\\Users\\karol\\Downloads\\Trading 2.0\\ChatGPT Image 19 wrz 2026, 14_13_48.png",
+      "location": "Cały schemat: Ty, AI Chat, Trading Office, analitycy, ryzyko, krytyk, rynki.",
+      "use": "Źródłowa wizja AstralJet i 19 ról AJ-00–AJ-18.",
+      "roles": "Źródłowa wizja AstralJet i 19 ról AJ-00–AJ-18.",
+      "issues": "Grafika koncepcyjna przekazana przez Karola; strzałki S.M. Promo do rynków nie oznaczają uprawnienia do transakcji.",
+      "pages": null,
+      "sha256": "27eefc177d400f0cd18ba766825cf5e0ebd38df0f90fde3a62248db90349c926",
+      "bytes": 2138213,
+      "kind": "Grafika",
+      "provenance": "Załącznik użytkownika; mapa koncepcji, nie dowód działania systemu.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-017",
+      "name": "1-Photo-1.jpg",
+      "path": "C:\\Users\\karol\\Documents\\Codex\\2026-09-19\\openai-developers-plugin-openai-developers-openai-3\\.codex-remote-attachments\\01a0b995-b7b5-7d20-82f7-0b06ece0c226\\7587d357-0685-4db4-8898-23e691dc529a\\1-Photo-1.jpg",
+      "location": "Pełny wcześniejszy schemat Trading Office ASTRA JET.",
+      "use": "Powtórzona wizja całości i relacja W.M. / inne projekty.",
+      "roles": "Powtórzona wizja całości i relacja W.M. / inne projekty.",
+      "issues": "Inna wersja obrazu tej samej koncepcji; nie niezależne potwierdzenie wdrożenia.",
+      "pages": null,
+      "sha256": "72dc53e576573692d958b507c2c6f145bd78e960827a2bda93482e837e89800c",
+      "bytes": 189444,
+      "kind": "Grafika",
+      "provenance": "Załącznik użytkownika; mapa koncepcji, nie dowód działania systemu.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-018",
+      "name": "2-Photo-2.jpg",
+      "path": "C:\\Users\\karol\\Documents\\Codex\\2026-09-19\\openai-developers-plugin-openai-developers-openai-3\\.codex-remote-attachments\\01a0b995-b7b5-7d20-82f7-0b06ece0c226\\7587d357-0685-4db4-8898-23e691dc529a\\2-Photo-2.jpg",
+      "location": "Dwa bloki: Badanie strategii oraz Testowanie strategii.",
+      "use": "Bezpośrednia podstawa zakresu ASTRA Pro — AJ-05 i AJ-07.",
+      "roles": "Bezpośrednia podstawa zakresu ASTRA Pro — AJ-05 i AJ-07.",
+      "issues": "Zbliżenie wcześniejszego schematu. Nie opisuje funkcji składania zleceń przez laboratorium.",
+      "pages": null,
+      "sha256": "48e8831613677d9bae0045cb4192be94fcd7c035b6b9843fb41d9775818b3e55",
+      "bytes": 87793,
+      "kind": "Grafika",
+      "provenance": "Załącznik użytkownika; mapa koncepcji, nie dowód działania systemu.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-019",
+      "name": "AURUM_ASTRA_2026-09-19.zip",
+      "path": "C:\\Users\\karol\\Documents\\Codex\\2026-09-19\\openai-developers-plugin-openai-developers-openai-3\\outputs\\AURUM_ASTRA_2026-09-19.zip",
+      "location": "Archiwum wcześniejszego audytu; odpowiadające pliki robocze w outputs/AURUM_ASTRA.",
+      "use": "Kontekst zastanego systemu i wcześniejsze katalogi. Do stanu z 15:06 używamy późniejszego raportu E-09.",
+      "roles": "AJ-00, AJ-01, AJ-16, AJ-17",
+      "issues": "Datowany audyt częściowy. Sam ZIP nie jest nowym audytem całej historii. Sprawdzono obecność i listę archiwum, a treść raportów odczytano z rozpakowanego katalogu.",
+      "pages": null,
+      "sha256": "6c35f86c6ef06396890d8351dbd412a423946b2d6450cd12165ea10706f05f72",
+      "bytes": 2369698,
+      "kind": "ZIP — 15 wpisów",
+      "provenance": "Wcześniejszy pakiet AURUM / ASTRA wskazany przez Karola.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-020",
+      "name": "SebAIAIDayTradingDeskAstraGuide.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\SebAIAIDayTradingDeskAstraGuide.pdf",
+      "location": "s. 1–2: granice i sześć ról; s. 3–8: karty analityków; s. 9–11: orkiestracja i opcjonalny dashboard; s. 12: fikcyjny przykład XYZ; s. 13: weryfikacja danych.",
+      "use": "Wzorzec wejść, wyjść i przekazania analizy między AJ-10, AJ-12, AJ-07, AJ-09 i AJ-05; wspólny raport dla AJ-00.",
+      "roles": "AJ-00, AJ-01, AJ-05, AJ-06, AJ-07, AJ-09, AJ-10, AJ-12",
+      "issues": "Skanowanie instrumentów z dostarczonej tabeli nie jest wyszukiwaniem strategii przez Scouta. Przykład XYZ jest fikcyjny. Sześć kroków i przykład 1% nie są obowiązkowym przebiegiem każdej strategii. Instrukcja budowy nowego dashboardu nie zmienia zakresu v0.2.",
+      "pages": 13,
+      "sha256": "ee1391de12bd9091d25e827dc3c5b1b1891b19db2d8f6ae0006eef56f64ad6e3",
+      "bytes": 262074,
+      "kind": "PDF — przewodnik",
+      "provenance": "Przewodnik przekazany przez Karola; oznaczenia autora/marki SebAI lub @seb.ai w materiale. Nie potwierdzano tożsamości autora ani niezależnie wszystkich deklaracji. Osobna rodzina materiałów od opracowań NotebookLM.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-021",
+      "name": "AIMoneyMakingTeam.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\AIMoneyMakingTeam.pdf",
+      "location": "s. 2–3: brief i łańcuch pracy; s. 4–9: research, produkt, leady, treści, reklamy, sprzedaż; s. 10 i 12: Operations; s. 11: sama stopka; s. 13: lista kontrolna.",
+      "use": "Operations jako inspiracja tablicy zadań AJ-01/AJ-16. Treści wyłącznie jako materiał dla AJ-18 po osobnym zleceniu. Pozostałe funkcje biznesowe w katalogu pobocznym.",
+      "roles": "AJ-00, AJ-01, AJ-16, AJ-18; funkcje sprzedażowe poza zakresem AstralJet",
+      "issues": "Siedmiu agentów biznesowych nie dopisujemy do 19 ról tradingowych. Przykłady klientów i wyników są ilustracyjne. Liczba opinii konkurenta nie potwierdza płatnego popytu na ofertę Karola. Nie wysyłamy wiadomości ani nie uruchamiamy reklam.",
+      "pages": 13,
+      "sha256": "fbadcb03fb61f91dc21ee7d9d05eabd12bc316e176dcdba31dc8669019373959",
+      "bytes": 154231,
+      "kind": "PDF — przewodnik",
+      "provenance": "Przewodnik przekazany przez Karola; oznaczenia autora/marki SebAI lub @seb.ai w materiale. Nie potwierdzano tożsamości autora ani niezależnie wszystkich deklaracji. Osobna rodzina materiałów od opracowań NotebookLM.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-022",
+      "name": "Audyt_Astry_2026-09-15.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\Trading 2.0\\Audyt_Astry_2026-09-15.pdf",
+      "location": "s. 1–6: podsumowanie i stan 15.09; s. 7: koszty oraz brak niezależnej próby; s. 8: UNCERTAIN i nieporównywalna runda; s. 9–10: uruchomienie, stan i wersje; s. 11: ocena krypto i autorstwo zdarzeń; s. 12–13: naprawy i metoda.",
+      "use": "Historyczny punkt odniesienia dla AJ-08/AJ-09/AJ-15/AJ-16/AJ-17; wymagania odtwarzalności, porównywalności i rozliczenia operacji.",
+      "roles": "AJ-06, AJ-07, AJ-08, AJ-09, AJ-15, AJ-16, AJ-17",
+      "issues": "Audyt Claude: 15.09.2026, stan 20:35, aktualizacja 21:15 czasu polskiego. Nie jest bieżącym stanem 19.09. Liczba 785 testów i dawne wyniki nie były tu ponownie sprawdzane. Progi t > 2 i przykład 30 transakcji są zaleceniami autora audytu, nie zatwierdzonymi kryteriami v0.2. Polecenia naprawcze i usuwania plików nie są wykonywane.",
+      "pages": 13,
+      "sha256": "de39f064a880ad983c9447966449fda0521b8ad585679686fbf6492ea4401cdc",
+      "bytes": 915817,
+      "kind": "PDF — audyt historyczny",
+      "provenance": "Dokument podpisany jako ponowny audyt Claude, 15.09.2026; przekazany przez Karola. Dokumentacja historyczna, nie nowy odczyt.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-023",
+      "name": "Claude-x-TradingView-OS.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\Claude-x-TradingView-OS.pdf",
+      "location": "s. 1–4: desktop i połączenie; s. 5: prompty i ograniczenia; s. 6: przykładowy plan; s. 7: rutyna; s. 8: zakończenie.",
+      "use": "Możliwy podgląd wykresów AJ-10, raport dzienny AJ-00 i przyszły adapter. Porównanie z lokalnym mostem E-13.",
+      "roles": "AJ-00, AJ-10, AJ-17",
+      "issues": "Polecenia instalacji są dla macOS; nie kopiujemy ich do Windows. Most CDP do TradingView różni się od TradingKit. Przykładowe 1% ryzyka i R/R 1:2 nie są polityką Astry. Odczyt wykresu nie zastępuje backtestu.",
+      "pages": 8,
+      "sha256": "27d2028daa5aa8987c6893a5ece98a4daf041894d1fa3623b51c4b13543fd2e6",
+      "bytes": 187837,
+      "kind": "PDF — przewodnik",
+      "provenance": "Przewodnik przekazany przez Karola; oznaczenia autora/marki SebAI lub @seb.ai w materiale. Nie potwierdzano tożsamości autora ani niezależnie wszystkich deklaracji. Osobna rodzina materiałów od opracowań NotebookLM.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-024",
+      "name": "SebAI-10K-ChatGPT-Paper-Trading-Guide.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\SebAI-10K-ChatGPT-Paper-Trading-Guide.pdf",
+      "location": "s. 1–4: cel i źródła; s. 5: schemat dane–badanie–pomysł; s. 6–10: reguły, sizing i karta; s. 7: pusta strona; s. 11–15: przeglądy i dziennik; s. 16–20: projekt, alerty, dashboard, cykl; s. 21: zakończenie.",
+      "use": "Szablon karty hipotetycznej transakcji, dziennika, przeglądu tygodniowego i oceny jakości procesu. Pomoc dla specyfikacji inkubacji.",
+      "roles": "AJ-00, AJ-05, AJ-07, AJ-09, AJ-15, AJ-16",
+      "issues": "10 000 USD, 30 dni i 1% to przykład edukacyjny, nie plan rachunku Karola. Ręczny dziennik paper nie dowodzi działania ciągłego wykonawcy. Dashboard może zawierać mock; taki zapis musi być oznaczony. Nie tworzymy nowego projektu ChatGPT ani nowej aplikacji na podstawie promptu z PDF.",
+      "pages": 21,
+      "sha256": "aaaa19ef3217d23773b1e2adfc63895a9a6189294a62c517e3a75a28aa1c1458",
+      "bytes": 307212,
+      "kind": "PDF — przewodnik",
+      "provenance": "Przewodnik przekazany przez Karola; oznaczenia autora/marki SebAI lub @seb.ai w materiale. Nie potwierdzano tożsamości autora ani niezależnie wszystkich deklaracji. Osobna rodzina materiałów od opracowań NotebookLM.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-025",
+      "name": "SebAIAIDayTradingDeskAstraGuide (1).pdf",
+      "path": "C:\\Users\\karol\\Downloads\\SebAIAIDayTradingDeskAstraGuide (1).pdf",
+      "location": "Całość: s. 1–13, identyczna z SRC-020.",
+      "use": "Alias pliku SRC-020; wspólna karta wiedzy i te same odwołania do stron.",
+      "roles": "Jak SRC-020",
+      "issues": "Dokładny duplikat bajtowy SRC-020, potwierdzony SHA-256. Nie zwiększa liczby niezależnych materiałów ani dowodów.",
+      "pages": 13,
+      "sha256": "ee1391de12bd9091d25e827dc3c5b1b1891b19db2d8f6ae0006eef56f64ad6e3",
+      "bytes": 262074,
+      "kind": "PDF — przewodnik",
+      "provenance": "Przewodnik przekazany przez Karola; oznaczenia autora/marki SebAI lub @seb.ai w materiale. Nie potwierdzano tożsamości autora ani niezależnie wszystkich deklaracji. Osobna rodzina materiałów od opracowań NotebookLM.",
+      "duplicate_of": "SRC-020"
+    },
+    {
+      "id": "SRC-026",
+      "name": "SebAIAICryptoTraderAstraGuide.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\SebAIAICryptoTraderAstraGuide.pdf",
+      "location": "s. 1–2: zakres i przygotowanie; s. 3–6: Scan, Technicals, Research, Risk; s. 7–8: plan i master prompt; s. 9–10: alert i dashboard; s. 11–12: przykład i zasady.",
+      "use": "Wzorzec analizy danych krypto: źródło i czas, jawne braki, rozdzielenie faktu od opinii i ryzyka. Raport przekazywany AJ-05.",
+      "roles": "AJ-00, AJ-05, AJ-06, AJ-09, AJ-10, AJ-11, AJ-12",
+      "issues": "Cztery prompty i plan nie są automatem składającym zlecenia. Ranking dostarczonych monet nie oznacza skanu całego rynku. Dane on-chain wymagają źródła; przykłady 5000 USD i 1% nie są parametrami Astry.",
+      "pages": 12,
+      "sha256": "0e7e5fba7b2b3286ad5daec54dc5d3a361619fa662c710202596ccb7392c1dfb",
+      "bytes": 240806,
+      "kind": "PDF — przewodnik",
+      "provenance": "Przewodnik przekazany przez Karola; oznaczenia autora/marki SebAI lub @seb.ai w materiale. Nie potwierdzano tożsamości autora ani niezależnie wszystkich deklaracji. Osobna rodzina materiałów od opracowań NotebookLM.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-027",
+      "name": "SebAIAIHedgeFund8AnalystsGuide.pdf",
+      "path": "C:\\Users\\karol\\Downloads\\SebAIAIHedgeFund8AnalystsGuide.pdf",
+      "location": "s. 1: kolejność ośmiu ról; s. 2: wyniki i memo; s. 3: prompty i tryb próbny; s. 4: jakość danych i domknięcie.",
+      "use": "Wspólny pakiet źródeł, oddzielne raporty analityków, krytyka ryzyka i memo dla Karola. Mapa do istniejących ról w strukturze v0.2.",
+      "roles": "AJ-00, AJ-01, AJ-05, AJ-07, AJ-09, AJ-11, AJ-12, AJ-13, AJ-14",
+      "issues": "Execution Planner przygotowuje plan, nie realizuje zlecenia. Sektor należy do AJ-11; nie tworzymy dodatkowego bota. Przykładowe 100 000 USD i 2% oraz identyfikatory modeli nie są zatwierdzoną konfiguracją.",
+      "pages": 4,
+      "sha256": "b660970f649db4cc4d7375d9ba5e9305a3c32e6f4dad3ca41800cdf7bdbf7a1f",
+      "bytes": 157800,
+      "kind": "PDF — przewodnik",
+      "provenance": "Przewodnik przekazany przez Karola; oznaczenia autora/marki SebAI lub @seb.ai w materiale. Nie potwierdzano tożsamości autora ani niezależnie wszystkich deklaracji. Osobna rodzina materiałów od opracowań NotebookLM.",
+      "duplicate_of": ""
+    },
+    {
+      "id": "SRC-028",
+      "name": "Vantage_Broker_Koszty_i_Spready.xlsx",
+      "path": "C:\\Users\\karol\\Downloads\\Vantage_Broker_Koszty_i_Spready.xlsx",
+      "location": "Arkusz 'Koszty i Spready', A1:E8; siedem klas aktywów w wierszach 2–8. Szczegóły kontroli poniżej.",
+      "use": "Lista pytań do profilu kosztów DATA; materiał do LAB-06 i prób kosztowych LAB-10. Bez kopiowania liczb do konfiguracji.",
+      "roles": "AJ-06, AJ-07, AJ-09",
+      "issues": "Szacunki bez źródeł taryfy, podmiotu brokera, serwera, daty kwotowania i pełnej konwencji naliczania. Jednostki i koszt jednej strony/pełnego obrotu wymagają uzgodnienia. Brak potwierdzenia zgodności z rachunkiem Astry.",
+      "pages": null,
+      "sha256": "b2bc35e88accb3a49177971c59ebffd3e591a4d5717fa7b96de312f1096264d9",
+      "bytes": 5799,
+      "kind": "XLSX — 1 arkusz, 7 wierszy danych",
+      "provenance": "Arkusz przekazany przez Karola; metadane openpyxl, utworzenie i modyfikacja 10.09.2026 19:15:05 bez wskazania strefy. Brak autora/taryfy w komórkach. Data pliku nie jest datą rynkowej obowiązywalności kosztów.",
+      "duplicate_of": ""
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E-01",
+      "path": null,
+      "location": "Rozmowa z Karolem: polecenie wdrożenia planu v0.2 i trzy odpowiedzi z fazy planowania.",
+      "meaning": "Potwierdza: rozwijamy obecną Astrę; najpierw dokumentacja; Lab bada i ocenia, Wykonawca osobno.",
+      "sha256": null
+    },
+    {
+      "id": "E-02",
+      "path": "C:\\Users\\karol\\Documents\\Codex\\2026-09-19\\openai-developers-plugin-openai-developers-openai-3\\outputs\\AstralJet\\ASTRALJET_STRUKTURA_v0.1.md",
+      "location": "19 kart i źródłowe obrazy SRC-016–SRC-018.",
+      "meaning": "Dowód projektu ról, nie ich kompletnego wdrożenia.",
+      "sha256": "dbe078b8aadfe3aa6a7f6298145c526e64ab7de581175dd7173662ea07946208"
+    },
+    {
+      "id": "E-03",
+      "path": "C:\\Users\\karol\\Documents\\Claude\\Projects\\Trading\\astra_site\\research\\discovery\\README.md",
+      "location": "Sekcje: kolejka turniejów, Portfel strategii i czytanie całych materiałów, X: radar i badania.",
+      "meaning": "Opis zastanego zachowania i limitów, nie test uruchomionego procesu.",
+      "sha256": "2d26c338831c4c4f3b7a29907bd32b68bf94d3ac0be4f71ddc36402e48f012bf"
+    },
+    {
+      "id": "E-04",
+      "path": "C:\\Users\\karol\\Documents\\Claude\\Projects\\Trading\\astra_site\\lib\\discovery-store.ts",
+      "location": "DiscoveryRecord, enqueue, jobs; research/discovery/worker.py: run_job, main.",
+      "meaning": "Kod rejestru i kolejki; istnienie funkcji nie dowodzi kompletności wdrożenia.",
+      "sha256": "e480e4f24c6adf9573f7e6f35f70520bf9ec6fa46f03be03f5363eb8763267b4"
+    },
+    {
+      "id": "E-05",
+      "path": "C:\\Users\\karol\\Documents\\Claude\\Projects\\Trading\\astra_site\\lib\\discovery.ts",
+      "location": "strategySpec, validateCitations, adapterIds; worker.py: ingest i extract_bytes.",
+      "meaning": "Schemat reguł i mechanizm sprawdzania cytatów; import obrazowego PDF wymaga osobnej ścieżki.",
+      "sha256": "0219e1119795cf11c3ad5ef52c698d159d9a0f36609e969adc41e96cfad9f8f3"
+    },
+    {
+      "id": "E-06",
+      "path": "C:\\Users\\karol\\Documents\\Claude\\Projects\\Trading\\astra_site\\research\\discovery\\research_models.py",
+      "location": "generate_research_signals i modele regułowe.",
+      "meaning": "Istnieją wybrane implementacje; nie dowodzi to uniwersalnego generatora lub modułu ML.",
+      "sha256": "b09eb71215ec495f861466c7dbd8676d41f556d58882c78d97493eda668e6dba"
+    },
+    {
+      "id": "E-07",
+      "path": "C:\\Users\\karol\\Documents\\Claude\\Projects\\Trading\\astra_site\\research\\discovery\\adapter.py",
+      "location": "collect oraz obliczenia bazowe/stresowe, hashe i raporty; bez uruchamiania.",
+      "meaning": "Adapter badawczy, dane MT5 i ograniczenia historycznej niezależności.",
+      "sha256": "e2667ad66b972f292e550d4632f999fb42f343d0adc4667154ca63e63f3bb0c7"
+    },
+    {
+      "id": "E-08",
+      "path": "C:\\Users\\karol\\Documents\\Claude\\Projects\\Trading\\astra_site\\research\\mt5_connector\\contest_lab\\astra_lab\\execution.py",
+      "location": "Silnik księgi; sąsiednie daily_replay.py, pair_replay.py i katalog tests.",
+      "meaning": "Kod testów i diagnostyki, nie nowy pomiar skuteczności strategii.",
+      "sha256": "d3b284a59c85049b500df91afa2fdf6ad1e3fbc1e6a039b92620475780b4442e"
+    },
+    {
+      "id": "E-09",
+      "path": "C:\\Users\\karol\\Documents\\Codex\\2026-09-19\\openai-developers-plugin-openai-developers-openai-3\\outputs\\AURUM_ASTRA\\13_AUR001_POSTEP.md",
+      "location": "Raport z 19.09.2026, odczyty 15:03–15:06 Europe/Warsaw.",
+      "meaning": "Historycznie potwierdzone wykonanie DEMO i uzgodnienie 64 zapisów; pełna historia pozostaje niepotwierdzona.",
+      "sha256": "6008c9bafb11de17f09d3a2646c8d81acd4beb208cc43b43a180dbd77207e1fc"
+    },
+    {
+      "id": "E-10",
+      "path": "C:\\Users\\karol\\Documents\\Claude\\Projects\\Trading\\astra_site\\research\\mt5_connector\\astra_monitor.py",
+      "location": "Kod monitora; astra_demo_round.py, astra_crypto_round.py i astra_oil_round.py jako sąsiedni kod wykonawców.",
+      "meaning": "Istnienie kodu wykonania i monitorowania. Bieżącego stanu procesu nie sprawdzano w etapie dokumentacji.",
+      "sha256": "03591ea067efee8fe1865e942100fd81bb9f3ef5543b955005617febfdfaf5a5"
+    },
+    {
+      "id": "E-11",
+      "path": "C:\\Users\\karol\\Documents\\Codex\\2026-09-19\\openai-developers-plugin-openai-developers-openai-3\\outputs\\AURUM_ASTRA\\01_AUDYT_2026-09-19.md",
+      "location": "Katalogi i blokady importów oraz kolejki z pierwszego audytu.",
+      "meaning": "Dane historyczne; nie deklarujemy usunięcia dawnych błędów.",
+      "sha256": "fda067d919860ded0e2fb9d2473ac1392551eac5e970d4d9d17eddeba3bec292"
+    },
+    {
+      "id": "E-12",
+      "path": "C:\\Users\\karol\\Documents\\Claude\\Projects\\Trading\\astra_site\\research\\research_cli\\README.md",
+      "location": "Opis ról badawczych i materiałów SEB.",
+      "meaning": "Punkt odniesienia dla analityków; brak potwierdzenia kompletnego automatycznego wdrożenia.",
+      "sha256": "b2f4b076345ec476a7d318188490ac0fa8ed423a9559da33c408a842a95e5dbd"
+    },
+    {
+      "id": "E-13",
+      "path": "C:\\Users\\karol\\tradingview-mcp\\README.md",
+      "location": "How It Works, What This Tool Does Not Do, Prerequisites.",
+      "meaning": "Lokalny most do aplikacji TradingView; odrębny od TradingKit / trader.dev.",
+      "sha256": "9e05e20adc349e2c3ab9d8a48d428624dfe00ea9a52422d6ec976ff9a1dc17a4"
+    }
+  ],
+  "preserved_v01": {
+    "ASTRALJET_ROLE_I_ZALEZNOSCI_v0.1.csv": "cbe909077f50e3397a252186a8eeef7e8795d17d8639e2011f5dcb2ea8e70304",
+    "ASTRALJET_STRUKTURA_v0.1.md": "dbe078b8aadfe3aa6a7f6298145c526e64ab7de581175dd7173662ea07946208",
+    "ASTRA_PRO_TRADING_LAB_v0.1.md": "28dc06559d914f04cb1234e91e233b8d6920f85a6047ee2dc4bf3ee3c90965d0",
+    "START_v0.1.md": "df46f3c5ca7205a09ba8e163d7017b01a798583b7d07eca09cb84c1459ce5344",
+    "ZAPIS_I_ZAKRES_v0.1.md": "0594666d68b960ee17da9a7330a77bc91ff18bd7e19eeb51c8f5897af4242d71"
+  },
+  "repo_head": "5073f653d35a2d01ff92ab2e4f854f33f213fa23",
+  "repo_status_before_and_after": " M README_ASTRA.md\n?? .claude/\n?? docs/AUR001_AUDIT_2026-09-19.md\n?? research/recovery/intraday_momentum.py\n?? research/recovery/run_intraday_momentum.py\n?? research/recovery/test_intraday_momentum.py\n",
+  "document_verification": {
+    "verified_at": "2026-09-19T14:53:58+00:00",
+    "checks": [
+      {
+        "check": "19 kart i zachowane identyfikatory",
+        "passed": true,
+        "evidence": "AJ-00, AJ-01, AJ-02, AJ-03, AJ-04, AJ-05, AJ-06, AJ-07, AJ-08, AJ-09, AJ-10, AJ-11, AJ-12, AJ-13, AJ-14, AJ-15, AJ-16, AJ-17, AJ-18"
+      },
+      {
+        "check": "Wymagane pola każdej roli",
+        "passed": true,
+        "evidence": "13 pól w każdej z 19 kart; odbiorcy, obowiązkowe/opcjonalne zależności, powody zatrzymania i dowody."
+      },
+      {
+        "check": "12 zadań Lab",
+        "passed": true,
+        "evidence": "LAB-01–LAB-12; właściciel, wejście, przekazanie i kryterium odbioru."
+      },
+      {
+        "check": "Komplet: źródła",
+        "passed": true,
+        "evidence": "28 unikalnych kart w katalogu."
+      },
+      {
+        "check": "Komplet: dowody",
+        "passed": true,
+        "evidence": "13 unikalnych kart w katalogu."
+      },
+      {
+        "check": "Kompletność załączników",
+        "passed": true,
+        "evidence": "28 plików istnieje i ma zgodny SHA-256; każdy ma zastosowanie i lokalizator."
+      },
+      {
+        "check": "Duplikat Day Trading",
+        "passed": true,
+        "evidence": "SRC-025 → SRC-020; 134 strony w 21 PDF, 121 stron po wyłączeniu kopii."
+      },
+      {
+        "check": "Historia v0.1 zachowana",
+        "passed": true,
+        "evidence": "Porównanie bajtowych sum pięciu dokumentów/tabel archiwalnych."
+      },
+      {
+        "check": "Tabela ASTRALJET_ROLE_I_ZALEZNOSCI_v0.2.csv",
+        "passed": true,
+        "evidence": "19 unikalnych wierszy."
+      },
+      {
+        "check": "Tabela ASTRALJET_KATALOG_ZRODEL_v0.2.csv",
+        "passed": true,
+        "evidence": "28 unikalnych wierszy."
+      },
+      {
+        "check": "Bieżąca tabela wskazuje v0.2",
+        "passed": true,
+        "evidence": "Identyczna treść bieżącej i wersjonowanej tabeli."
+      },
+      {
+        "check": "Cztery rodzaje dowodu",
+        "passed": true,
+        "evidence": "Oddzielone wykonanie, czas i ograniczenia dowodu."
+      },
+      {
+        "check": "Przykład i scenariusze dokumentacji",
+        "passed": true,
+        "evidence": "Przegląd tekstu: brak reguł, błąd danych, budżet, negatywny/niejednoznaczny wynik, inkubacja i ponowna ocena. Bez wykonywania strategii."
+      },
+      {
+        "check": "Decyzje następnego etapu",
+        "passed": true,
+        "evidence": "DEC-09–DEC-14 pozostają odroczone albo poza etapem."
+      },
+      {
+        "check": "Brak niewypełnionych znaczników",
+        "passed": true,
+        "evidence": "Szablony rozwinięto."
+      },
+      {
+        "check": "Odwołania do identyfikatorów",
+        "passed": true,
+        "evidence": "Wszystkie odwołania AJ/LAB/SRC/E/DEC/DOC mieszczą się w katalogu."
+      },
+      {
+        "check": "Odnośniki do plików",
+        "passed": true,
+        "evidence": "Sprawdzono pliki docelowe; raport odbioru i manifest powstają jako ostatnie pliki pakietu."
+      },
+      {
+        "check": "Repo bez nowych zmian w tym etapie",
+        "passed": true,
+        "evidence": "HEAD i lista zastanych zmian zgodne z odczytem statycznym; nie wykonywano testów aplikacji, nie zmieniano runtime."
+      }
+    ],
+    "all_passed": true
+  },
+  "notion_verification": {
+    "pages": [
+      {
+        "page_id": "3e0cb4db-3956-8158-b175-de099f278a0c",
+        "url": "https://app.notion.com/p/3e0cb4db39568158b175de099f278a0c?pvs=204",
+        "title": "AstralJet — struktura i role v0.2",
+        "edited_at": "2026-09-19T14:55:37.817Z",
+        "characters": 51761,
+        "tables": 4,
+        "missing": [],
+        "truncated": null,
+        "unknown_block_count": null,
+        "hasPlaceholder": false
+      },
+      {
+        "page_id": "3e0cb4db-3956-8126-bbfb-e81c7eebe63b",
+        "url": "https://app.notion.com/p/3e0cb4db39568126bbfbe81c7eebe63b?pvs=204",
+        "title": "ASTRA Pro Trading Lab — specyfikacja v0.2",
+        "edited_at": "2026-09-19T14:55:51.199Z",
+        "characters": 36058,
+        "tables": 10,
+        "missing": [],
+        "truncated": null,
+        "unknown_block_count": null,
+        "hasPlaceholder": false
+      },
+      {
+        "page_id": "3e0cb4db-3956-81a6-bea3-e30be0dad472",
+        "url": "https://app.notion.com/p/3e0cb4db395681a6bea3e30be0dad472?pvs=204",
+        "title": "AstralJet — źródła i decyzje v0.2",
+        "edited_at": "2026-09-19T14:56:02.915Z",
+        "characters": 52461,
+        "tables": 6,
+        "missing": [],
+        "truncated": null,
+        "unknown_block_count": null,
+        "hasPlaceholder": false
+      }
+    ],
+    "parent": {
+      "url": "https://app.notion.com/p/3a6cb4db395681da9b3efe36e30d1d85?pvs=204",
+      "title": "📈 📈 AURUQ Trading",
+      "edited_at": "2026-09-19T14:56:51.233Z",
+      "index_present": true,
+      "v01_content_preserved": true
+    },
+    "verified_at": "2026-09-19T14:57:28.418Z"
+  }
+}

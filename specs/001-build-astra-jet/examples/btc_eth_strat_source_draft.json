@@ -1,0 +1,24 @@
+{
+  "instruments": [
+    "BTCUSD",
+    "ETHUSD"
+  ],
+  "venue": "",
+  "timeframe": "dzienne świece agregowane do tygodniowego zamknięcia UTC",
+  "signal_timing": "po tygodniowym zamknięciu, wyłącznie na kompletnych danych",
+  "execution_timing": "",
+  "entry_rule": "pełna docelowa ekspozycja, gdy BTC jest powyżej 200-dniowej średniej i średnia rośnie",
+  "exit_rule": "redukcja ekspozycji o 50%, gdy tygodniowe zamknięcie BTC jest poniżej 200DMA i nastąpiło pogorszenie struktury trendu",
+  "sizing_rule": "stan bazowy BTC 70%, ETH 20%, cash 10%; po sygnale risk-off redukcja ekspozycji ryzykownej o 50%; odbudowa w 2–3 transzach",
+  "cost_model": "unknown",
+  "constraints": [
+    "bez dźwigni",
+    "sygnał tylko z zamkniętych świec",
+    "brak handlu REAL",
+    "PAPER/DEMO dopiero po REVIEW, RISK-DECISION i MANDATE"
+  ],
+  "missing_data_policy": "zablokuj sygnał i wykonanie przy brakującej, zduplikowanej lub niespójnej świecy któregokolwiek instrumentu",
+  "benchmark": "statyczne BTC 80%, ETH 20%; częstotliwość rebalansu do uzgodnienia",
+  "allowed_parameters": {},
+  "source_adaptation": "Szkic odwzorowuje wyłącznie treść SRC-029. Zakres 8–22% p.a. oraz deklarowane 10–25 pp ochrony kapitału są hipotezami autora źródła i nie są zatwierdzonymi kryteriami, prognozą ani dowodem. Puste pola i niejednoznaczne frazy wymagają decyzji Karola przed zamrożeniem EXP."
+}

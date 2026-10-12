@@ -1,0 +1,106 @@
+{
+  "format": "astraljet-experiment-proposal-v1",
+  "proposal_id": "btc-eth-weekly-v0.2",
+  "status": "DRAFT_BLOCKED",
+  "approved": false,
+  "execution_authorized": false,
+  "experiment_id": null,
+  "source": {
+    "catalog_id": "SRC-029",
+    "runtime_id": "SRC-b85ac93a0ecd481ab685ce4189fc877c",
+    "file_sha256": "ED708DAF399C9851CA925F4050817936CD2F6F80D3C14A29899699CEA8FB6998",
+    "section": "6. Strategia #5 — BTC/ETH z kontrolą trendu i ryzyka",
+    "legacy_reference_versions_verified": false
+  },
+  "current_strategy_reference": {
+    "registry": "quickstart-2026-09-19",
+    "id": "STRAT-5fb2fbd40d9f4842afdcaa2b2898a411",
+    "version": 1,
+    "content_hash": "FB828654592A65E6A6DCC31F9B82E2B40187871FD27430618C7B9D4EA1D004A5",
+    "status": "needs_input"
+  },
+  "current_data_reference": {
+    "registry": "state",
+    "id": "DATA-1e44487b0074425f959c2758c497c046",
+    "version": 1,
+    "csv_sha256": "5012CA5FA52653633438853CEBEC8AE98C6DA5253B7C987A836E475FFE42CEFF",
+    "metadata_sha256": "3DA30894AF73ACCC05DDB4B7E438EF344EFAE777185EE43D9C8F7445B069E61A",
+    "status": "gaps",
+    "scope": "private_local_research_only"
+  },
+  "hypothesis": "Sprawdzić, czy tygodniowy filtr trendu BTC ogranicza maksymalne obsunięcie wobec benchmarku 80/20 po kosztach, raportując również utracony zwrot. Bez założonej gwarancji poprawy.",
+  "proposed_rules": {
+    "instruments": ["BTCUSD", "ETHUSD"],
+    "venue": "Alpaca US",
+    "timeframe": "1d",
+    "timezone": "UTC",
+    "signal_weekday": 6,
+    "signal_after": "completed_Sunday_UTC_bar",
+    "ma_window": 200,
+    "slope_lookback": 20,
+    "risk_on_condition": "BTC.close[t] > SMA200[t] AND SMA200[t] > SMA200[t-20]",
+    "risk_off_condition": "NOT risk_on_condition",
+    "targets": {
+      "risk_off": {"BTCUSD": "0.35", "ETHUSD": "0.10", "CASH": "0.55"},
+      "rebuild_1": {"BTCUSD": "0.525", "ETHUSD": "0.15", "CASH": "0.325"},
+      "risk_on": {"BTCUSD": "0.70", "ETHUSD": "0.20", "CASH": "0.10"}
+    },
+    "initial_state": "100_percent_cash_until_first_eligible_weekly_signal",
+    "first_allocation": "false_condition_to_risk_off; true_condition_to_rebuild_1",
+    "transition": "false_to_risk_off; first_consecutive_true_to_rebuild_1; second_consecutive_true_to_risk_on",
+    "strategy_rebalance": "on_state_transition_only; quantities_drift_between_orders",
+    "eth_filter": "BTC_signal_only",
+    "cash_yield": "0",
+    "leverage": false,
+    "short_positions": false,
+    "execution_model": "next_daily_open_plus_cost_scenario; optimistic_latency_simplification",
+    "timing_stress": "one_additional_daily_bar_delay_fixed_before_results",
+    "available_at_verified": false,
+    "on_missing_bar": "stop_run_without_forward_fill"
+  },
+  "proposed_benchmark": {
+    "weights": {"BTCUSD": "0.80", "ETHUSD": "0.20"},
+    "initial_allocation": "same_boundary_as_strategy",
+    "rebalance": "first_available_month_open",
+    "same_costs_and_timing_scenario": true
+  },
+  "proposed_costs": {
+    "status": "pending_Karol_decision",
+    "fee_reference": "https://docs.alpaca.markets/us/docs/crypto-fees",
+    "fee_reference_checked_on": "2026-09-20",
+    "basis": "sum_absolute_executed_notional_of_BTC_and_ETH; buys_and_sells_charged_separately",
+    "scenarios_bps": {
+      "base": {"taker_fee": "25", "half_spread": "5", "slippage": "10", "total": "40"},
+      "stress": {"taker_fee": "25", "half_spread": "20", "slippage": "30", "total": "75"}
+    },
+    "historical_fee_schedule_verified": false,
+    "spread_and_slippage_measured": false,
+    "fee_simplification": "constant_USD_equivalent_cash_debit; not_exact_broker_fee_asset_accounting"
+  },
+  "proposed_protocol": {
+    "data_start": "2021-01-01",
+    "in_sample_end": "2024-12-31",
+    "out_of_sample_start": "2025-01-01",
+    "data_end": "2026-09-18",
+    "warmup_observations_including_signal_bar": 220,
+    "first_eligible_signal_bar": "2021-08-08",
+    "first_model_execution_boundary_utc": "2021-08-09T00:00:00Z",
+    "oos_warmup": "carry_219_previous_daily_observations_without_counting_their_returns_as_OOS",
+    "oos_portfolio": "carry_positions_cash_and_state_from_IS; reset_only_metric_denominator",
+    "out_of_sample_untouched_verified": false,
+    "initial_equity_index": "100",
+    "real_money_allocation": null,
+    "parameter_optimization": false,
+    "fixed_scenarios": ["base_next_open", "stress_next_open", "base_delay_one_day", "stress_delay_one_day"],
+    "reproduction": "repeat_each_scenario_with_identical_inputs",
+    "metrics_by_segment_and_benchmark": ["net_return", "max_drawdown", "annualized_return", "total_cost", "executed_notional", "exposure", "number_of_rebalances"],
+    "profit_factor": "not_applicable_without_defined_closed_trade_accounting",
+    "hypothesis_test": "OOS_drawdown_strategy < OOS_drawdown_benchmark_in_each_fixed_scenario; otherwise_not_supported_or_inconclusive",
+    "financial_qualification": "not_performed; no_DEMO_promotion",
+    "stop_on": ["changed_input_hash", "missing_or_invalid_bar", "negative_cash", "short_position", "lookahead", "unsupported_protocol", "reproduction_mismatch"],
+    "new_external_spend_authorized": false
+  },
+  "pending_decisions": ["rules_and_portfolio_mechanics", "cost_scenarios", "research_protocol_and_timing_simplifications"],
+  "technical_blockers": ["weekly_state_machine_missing", "portfolio_accounting_review_required", "separate_IS_OOS_and_benchmark_missing", "engine_hash_enforcement_required", "registry_placement_unresolved"],
+  "warning": "Propozycja, nie konfiguracja experiment freeze. Zmiana approved w pliku nie jest uwierzytelnioną decyzją ani mandatem. Nie uruchamiać starego backtestu jako implementacji tego protokołu."
+}
