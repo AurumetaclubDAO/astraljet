@@ -57,3 +57,13 @@ Thumbs.db
 # zainstalowanego oprogramowania z wersjami. Dane lokalne, niezwiazane
 # z dzialaniem AstralJet, a repozytorium jest publiczne.
 /docs/hegemonikon/
+
+# Badania: dane, cechy, modele i logi zostają lokalnie (duże pliki)
+research/**/data/
+research/**/features/
+research/**/models/
+research/**/logs/
+
+# Kopie robocze i stare środowiska
+*.bak-*
+.venv.*/
