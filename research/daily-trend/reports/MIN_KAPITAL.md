@@ -37,6 +37,7 @@ Co da się kupić przy danym kapitale (ostatnia decyzja, zaokrąglenie lotów w 
 | Kapitał | Rynki z pozycją | Rynki pominięte | Zainwestowane | Powinno być |
 |---|---|---|---|---|
 | 1 000 USD | 0 z 7 | 7 | 0% | 100% |
+| 2 500 USD | 0 z 7 | 7 | 0% | 100% |
 | 5 000 USD | 2 z 7 | 5 | 37% | 100% |
 | 10 000 USD | 2 z 7 | 5 | 49% | 100% |
 | 25 000 USD | 4 z 7 | 3 | 69% | 100% |
@@ -65,6 +66,7 @@ Co da się kupić przy danym kapitale (ostatnia decyzja, zaokrąglenie lotów w 
 | Kapitał | Rynki z pozycją | Rynki pominięte | Zainwestowane | Powinno być |
 |---|---|---|---|---|
 | 1 000 USD | 0 z 5 | 5 | 0% | 55% |
+| 2 500 USD | 0 z 5 | 5 | 0% | 55% |
 | 5 000 USD | 1 z 5 | 4 | 15% | 55% |
 | 10 000 USD | 1 z 5 | 4 | 15% | 55% |
 | 25 000 USD | 3 z 5 | 2 | 33% | 55% |
