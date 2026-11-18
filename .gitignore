@@ -67,3 +67,6 @@ research/**/logs/
 # Kopie robocze i stare środowiska
 *.bak-*
 .venv.*/
+
+# Zrzuty ekranu dashboardu pokazują numer rachunku i salda
+docs/dashboard/screenshots/
