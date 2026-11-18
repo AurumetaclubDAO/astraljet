@@ -1,0 +1,95 @@
+{
+  "api": {
+    "health": {
+      "status": 200,
+      "data_states": 0
+    },
+    "summary": {
+      "status": 200,
+      "data_states": 86
+    },
+    "bots": {
+      "status": 200,
+      "data_states": 49
+    },
+    "positions": {
+      "status": 200,
+      "data_states": 1
+    },
+    "risk": {
+      "status": 200,
+      "data_states": 2
+    },
+    "arena": {
+      "status": 200,
+      "data_states": 7
+    },
+    "funding": {
+      "status": 200,
+      "data_states": 4
+    },
+    "schedule": {
+      "status": 200,
+      "data_states": 8
+    },
+    "alpaca": {
+      "status": 200,
+      "data_states": 1
+    }
+  },
+  "screens": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "file": "dashboard-1440.png",
+      "no_overflow": true,
+      "all_cards_badged": true,
+      "contrast": {
+        "checked": 285,
+        "failures": []
+      }
+    },
+    {
+      "width": 1024,
+      "height": 900,
+      "file": "dashboard-1024.png",
+      "no_overflow": true,
+      "all_cards_badged": true,
+      "contrast": {
+        "checked": 285,
+        "failures": []
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "file": "dashboard-390.png",
+      "no_overflow": true,
+      "all_cards_badged": true,
+      "contrast": {
+        "checked": 276,
+        "failures": []
+      }
+    }
+  ],
+  "console_errors": [],
+  "source_states": {
+    "account": "CONFIRMED",
+    "terminal": "CONFIRMED",
+    "positions": "CONFIRMED",
+    "realized_today": "CONFIRMED",
+    "curve": "CONFIRMED",
+    "arena": "UNCONFIRMED",
+    "alpaca": "MISSING"
+  },
+  "source_errors": {
+    "account": null,
+    "terminal": null,
+    "positions": null,
+    "arena": "Snapshot Areny; brak trade_mode, metryki i statusy wymagają weryfikacji",
+    "alpaca": "Brak aktualnej weryfikacji Alpaca. Wcześniej zgłoszono HTTP 401. Panel nie odczytuje kluczy."
+  },
+  "manual_refresh": true,
+  "auto_refresh": true,
+  "status": "PASS"
+}

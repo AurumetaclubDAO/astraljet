@@ -1,0 +1,16 @@
+refresh_seconds = 45
+desktop = 'C:\Users\karol\Desktop'
+terminal_path = 'C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe'
+server = 'VantageMarkets-Demo'
+mt5_enabled = true
+schedule_enabled = true
+history_days = 30
+
+[freshness]
+mt5 = 90
+schedule = 90
+runner = 1200
+arena = 1200
+funding = 1800
+shadow = 108000
+config = 90
