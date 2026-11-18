@@ -56,3 +56,16 @@ Liczby dotyczą próby poza strojeniem (od 01.01.2025).
 | H3 | sąsiad_151_2 | sąsiad | 151, 2 | bazowy | 0 | -5.0% | 30.9% | 0.00 |
 | H3 | sąsiad_151_3 | sąsiad | 151, 3 | bazowy | 0 | +10.1% | 22.1% | 0.37 |
 | H3 | sąsiad_151_4 | sąsiad | 151, 4 | bazowy | 0 | +4.3% | 15.4% | 0.22 |
+
+## Przebiegi diagnostyczne
+
+Bez werdyktu, na okresie oglądanym wcześniej. Liczba przebiegów: 6 (2026-11-18). Też są spojrzeniem na próbę, więc liczą się do ostrożności.
+
+| Diagnoza | Strategia | Mnożnik finansowania | Zwrot | Obsunięcie | Sharpe |
+|---|---|---|---|---|---|
+| wpływ finansowania | H2 | 0.0 | +20.3% | 8.4% | 1.16 |
+| wpływ finansowania | punkt_odniesienia | 0.0 | +23.3% | 8.9% | 1.15 |
+| wpływ finansowania | H2 | 0.5 | +14.8% | 8.5% | 0.88 |
+| wpływ finansowania | punkt_odniesienia | 0.5 | +17.0% | 9.1% | 0.87 |
+| wpływ finansowania | H2 | 1.0 | +9.6% | 8.8% | 0.60 |
+| wpływ finansowania | punkt_odniesienia | 1.0 | +10.5% | 9.5% | 0.57 |

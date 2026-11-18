@@ -13,6 +13,7 @@ from pathlib import Path
 RESEARCH = Path(__file__).resolve().parents[1]
 H1_FILE = RESEARCH / 'btc-eth-weekly' / 'reports' / 'wynik_h1.json'
 H23_FILE = RESEARCH / 'daily-trend' / 'reports' / 'wynik_h2_h3.json'
+DIAG_FILE = RESEARCH / 'daily-trend' / 'reports' / 'diag_finansowanie.json'
 OUT_FILE = RESEARCH / 'REJESTR_PROB.md'
 # Hipotezy z regułami zapisanymi w SPEC_H2_H3.md; liczba wariantów na każdą wynika z tego pliku.
 PLANNED = {'H2': 'podążanie za trendem na koszyku rynków', 'H3': 'rotacja momentum między rynkami'}
@@ -83,6 +84,16 @@ def build() -> str:
               '| Hipoteza | Wariant | Rola | Parametry | Koszt | Opóźnienie | Zwrot | Obsunięcie | Sharpe |',
               '|---|---|---|---|---|---|---|---|---|']
     lines += ['| ' + ' | '.join(r) + ' |' for r in rows]
+    if DIAG_FILE.exists():
+        diag = json.loads(DIAG_FILE.read_text(encoding='utf-8'))
+        lines += ['', '## Przebiegi diagnostyczne', '',
+                  f"Bez werdyktu, na okresie oglądanym wcześniej. Liczba przebiegów: {len(diag['runs'])} "
+                  f"({diag['generated_at'][:10]}). Też są spojrzeniem na próbę, więc liczą się do ostrożności.", '',
+                  '| Diagnoza | Strategia | Mnożnik finansowania | Zwrot | Obsunięcie | Sharpe |', '|---|---|---|---|---|---|']
+        for r in diag['runs']:
+            oos = r['out_of_sample']
+            lines.append(f"| wpływ finansowania | {r['strategy']} | {r['financing_multiplier']} | {pct(oos['net_return'])} | "
+                         f"{pct(oos['max_drawdown']).lstrip('+')} | {num(oos['sharpe'])} |")
     return '\n'.join(lines) + '\n'
 
 
