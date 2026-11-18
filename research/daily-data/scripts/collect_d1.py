@@ -66,6 +66,9 @@ MARKETS = {
     "ETHUSD": {"name": [r"^ETHUSD"], "desc": []},
 }
 SYMBOL_TRADE_MODE_FULL = 4
+# Parametry wolumenu i wyceny ticka (do liczenia minimalnego kapitału; zadanie D1 planu).
+SIZING_FIELDS = ("volume_min", "volume_step", "volume_max", "trade_tick_size", "trade_tick_value",
+                 "currency_profit", "currency_margin")
 TRADE_MODES = {0: "DISABLED", 1: "LONGONLY", 2: "SHORTONLY", 3: "CLOSEONLY", 4: "FULL"}
 
 
@@ -243,6 +246,7 @@ def write_market(mt5, market: str, pick: dict, rates, server: str | None, server
         "swap_mode": int(si.swap_mode), "swap_rollover3days": int(si.swap_rollover3days),
         "currency_base": si.currency_base, "currency_profit": si.currency_profit,
         "trade_mode": TRADE_MODES.get(si.trade_mode, si.trade_mode),
+        **sizing(si),
         "bars": len(rows), "first_date": dates[0], "last_date": dates[-1],
         "excluded_forming_bar_dates": skipped,
         "gaps_over_5_days": gaps(dates),
@@ -253,6 +257,57 @@ def write_market(mt5, market: str, pick: dict, rates, server: str | None, server
     (DATA / f"{stem}.meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     log(f"{market}: {pick['symbol']} {len(rows)} świec {dates[0]}..{dates[-1]}, luki>5 dni: {len(meta['gaps_over_5_days'])}")
     return meta
+
+
+def sizing(si) -> dict:
+    out = {}
+    for k in SIZING_FIELDS:
+        v = getattr(si, k)
+        out[k] = v if isinstance(v, str) else float(v)
+    return out
+
+
+def enrich_meta() -> int:
+    """Dopisuje pola SIZING_FIELDS do istniejących plików meta. Nie pobiera świec, nie zmienia CSV ani Market Watch."""
+    import MetaTrader5 as raw_mt5
+    mt5 = ReadOnlyMT5(raw_mt5)
+    metas = sorted(DATA.glob("*_D1.meta.json"))
+    if not metas:
+        log("brak plików meta do uzupełnienia")
+        return 1
+    term = os.environ.get("MT5_TERMINAL", r"C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe")
+    if not mt5.initialize(path=term):
+        log(f"initialize() nie powiodło się: {mt5.last_error()}")
+        return 2
+    read_at = dt.datetime.now(UTC).isoformat(timespec="seconds")
+    done, failed = [], []
+    try:
+        for path in metas:
+            meta = json.loads(path.read_text(encoding="utf-8"))
+            si = mt5.symbol_info(meta["symbol"])
+            if si is None:
+                failed.append(meta["symbol"])
+                log(f"{meta['symbol']}: brak symbol_info ({mt5.last_error()})")
+                continue
+            meta.update(sizing(si))
+            meta["sizing_read_at_utc"] = read_at
+            path.write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            done.append(meta)
+            log(f"{meta['market']}: {meta['symbol']} uzupełniono {', '.join(SIZING_FIELDS)}")
+    finally:
+        mt5.shutdown()
+    lines = [f"- {m['market']} `{m['symbol']}`: wolumen min/krok/max {m['volume_min']:g}/{m['volume_step']:g}/{m['volume_max']:g}, "
+             f"tick {m['trade_tick_size']:g} = {m['trade_tick_value']:g} (waluta rachunku), "
+             f"waluta zysku {m['currency_profit']}, depozytu {m['currency_margin']}" for m in done]
+    lines += [f"- {s}: nie udało się odczytać `symbol_info`." for s in failed]
+    rpt = REPORTS / "DANE_D1.md"
+    section = ("## Parametry wolumenu i ticka\n\n"
+               f"Dopisane do plików meta {read_at} UTC (tryb `--meta-only`: sam `symbol_info`, "
+               "bez ponownego pobierania świec). `trade_tick_value` jest w walucie rachunku "
+               "i odpowiada ruchowi o `trade_tick_size` przy 1 locie.\n\n" + "\n".join(lines) + "\n")
+    rpt.write_text(rpt.read_text(encoding="utf-8").rstrip("\n") + "\n\n" + section, encoding="utf-8")
+    log(f"meta uzupełnione: {len(done)}, błędy: {len(failed)}")
+    return 0 if done and not failed else 1
 
 
 def report(results: list[dict], failures: list[str], offset_h, select_calls, read_at: str, maxbars) -> str:
@@ -392,6 +447,10 @@ def selftest() -> int:
     assert skipped == ["2026-11-18"] and rows[0]["open"] == "1.10000"
     assert csv_bytes(rows).decode().splitlines()[0] == "date,open,high,low,close,tick_volume,spread"
     assert gaps(["2026-01-01", "2026-01-06", "2026-01-13"]) == [{"after": "2026-01-06", "before": "2026-01-13", "days": 7}]
+    si = NS(volume_min=0.01, volume_step=0.01, volume_max=100, trade_tick_size=0.25, trade_tick_value=0.25,
+            currency_profit="USD", currency_margin="USD")
+    assert sizing(si) == {"volume_min": 0.01, "volume_step": 0.01, "volume_max": 100.0, "trade_tick_size": 0.25,
+                          "trade_tick_value": 0.25, "currency_profit": "USD", "currency_margin": "USD"}
     print("selftest OK")
     return 0
 
@@ -399,8 +458,12 @@ def selftest() -> int:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--selftest", action="store_true", help="testy bez połączenia z terminalem")
+    ap.add_argument("--meta-only", action="store_true",
+                    help="tylko dopisz parametry wolumenu i ticka do istniejących plików meta")
     a = ap.parse_args()
-    return selftest() if a.selftest else run()
+    if a.selftest:
+        return selftest()
+    return enrich_meta() if a.meta_only else run()
 
 
 if __name__ == "__main__":

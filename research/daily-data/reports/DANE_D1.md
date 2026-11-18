@@ -57,3 +57,17 @@ Kontrola po eksporcie: SHA-256 każdego CSV zgadza się z plikiem meta. Daty ros
 3. **Kryptowaluty mają świece sobotnie i niedzielne** (BTCUSD 527, ETHUSD 673), pozostałe rynki nie mają. Kalendarz wspólny dla koszyka będzie więc miał dni bez świec rynków tradycyjnych.
 4. **Wybór symbolu.** Dla SP500 i DAX nie było kandydata z pełnym handlem w Market Watch, więc dodano `SP500.r` i `GER40.r` (2 wywołania `symbol_select` w logu). Kontrakty `*ft` ani instrumenty ETF i akcyjne (`SPY`, `SDS`, `BNO`) nie były porównywane. Dla złota `XAUUSD247` miał tylko 177 świec, a `XAUUSD.crp` jest wyłączony z handlu.
 5. **Swap.** Indeksy mają `swap_mode` 2 (kwota w walucie symbolu), złoto, ropa i EURUSD tryb 1 (punkty), a kryptowaluty tryb 5 (procent rocznie). Wartości odczytano 18.11.2026 i mogą się zmieniać w czasie.
+
+## Parametry wolumenu i ticka
+
+Dopisane do plików meta 2026-11-18T08:44:23+00:00 UTC (tryb `--meta-only`: sam `symbol_info`, bez ponownego pobierania świec). `trade_tick_value` jest w walucie rachunku i odpowiada ruchowi o `trade_tick_size` przy 1 locie.
+
+- BTCUSD `BTCUSD`: wolumen min/krok/max 0.01/0.01/100, tick 0.01 = 0.01 (waluta rachunku), waluta zysku USD, depozytu BTC
+- ETHUSD `ETHUSD`: wolumen min/krok/max 0.01/0.01/100, tick 0.01 = 0.01 (waluta rachunku), waluta zysku USD, depozytu ETH
+- EURUSD `EURUSD+`: wolumen min/krok/max 0.01/0.01/100, tick 1e-05 = 1 (waluta rachunku), waluta zysku USD, depozytu EUR
+- DAX `GER40.r`: wolumen min/krok/max 0.1/0.1/500, tick 0.01 = 0.0109664 (waluta rachunku), waluta zysku EUR, depozytu EUR
+- NAS100 `NAS100.r`: wolumen min/krok/max 0.1/0.1/500, tick 0.01 = 0.01 (waluta rachunku), waluta zysku USD, depozytu USD
+- SP500 `SP500.r`: wolumen min/krok/max 0.1/0.1/500, tick 0.01 = 0.01 (waluta rachunku), waluta zysku USD, depozytu USD
+- BRENT `UKOUSD`: wolumen min/krok/max 0.01/0.01/20, tick 0.001 = 1 (waluta rachunku), waluta zysku USD, depozytu USD
+- WTI `USOUSD`: wolumen min/krok/max 0.01/0.01/20, tick 0.001 = 1 (waluta rachunku), waluta zysku USD, depozytu USD
+- GOLD `XAUUSD+`: wolumen min/krok/max 0.01/0.01/100, tick 0.01 = 1 (waluta rachunku), waluta zysku USD, depozytu USD
