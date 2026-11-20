@@ -1,0 +1,298 @@
+# -*- coding: utf-8 -*-
+"""Eksport D1 dla jawnej listy symboli (uniwersum serii 2) — WYŁĄCZNIE ODCZYT.
+
+Zlecenie koordynatora AURUQ-TRADING z 19–20.11.2026. Decyzja Karola: symbole do Market Watch
+dodaje sam, skrypt niczego w terminalu nie zmienia.
+
+Różnice względem collect_d1.py:
+- dokładne nazwy symboli z listy, bez dopasowań wzorcem;
+- symbol_select jest zabronione całkowicie (ani True, ani False), account_info także;
+- symbol spoza Market Watch (visible == False) jest pomijany i wypisany w raporcie;
+- wyjście do osobnego katalogu data/uniwersum/ (skrypty serii 1 czytają tylko data/*_D1.meta.json);
+- meta bez nazwy serwera, z trade_calc_mode, path i liczbą prób pobrania historii.
+
+Wynik:
+    research/daily-data/data/uniwersum/<SYMBOL>_D1.csv        (date,open,high,low,close,tick_volume,spread)
+    research/daily-data/data/uniwersum/<SYMBOL>_D1.meta.json
+    research/daily-data/reports/DANE_D1_UNIWERSUM.md
+    research/daily-data/logs/collect_d1_universe.log
+
+Użycie (środowisko z pakietem MetaTrader5):
+    research\\scalp-smc\\.venv\\Scripts\\python.exe research\\daily-data\\scripts\\collect_d1_universe.py
+    python research/daily-data/scripts/collect_d1_universe.py --selftest   (bez terminala)
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import hashlib
+import json
+import os
+import statistics
+import sys
+import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from collect_d1 import FORBIDDEN, TRADE_MODES, bars_to_rows, csv_bytes, gaps, sizing  # noqa: E402
+
+ROOT = Path(__file__).resolve().parents[1]
+OUT, LOGS, REPORTS = ROOT / "data" / "uniwersum", ROOT / "logs", ROOT / "reports"
+UTC = dt.timezone.utc
+MIN_BARS = 500
+CALC_MODES = {0: "FOREX", 1: "FUTURES", 2: "CFD", 3: "CFDINDEX", 4: "CFDLEVERAGE", 5: "FOREX_NO_LEVERAGE",
+              32: "EXCH_STOCKS", 33: "EXCH_FUTURES", 34: "EXCH_FUTURES_FORTS", 35: "EXCH_OPTIONS",
+              36: "EXCH_OPTIONS_MARGIN", 37: "EXCH_BONDS", 38: "EXCH_STOCKS_MOEX", 39: "EXCH_BONDS_MOEX",
+              64: "SERV_COLLATERAL"}
+
+# Lista dodana ręcznie przez Karola (51; ostatnie 6 opcjonalne) + 10 kandydatów już obecnych w Market Watch.
+ADDED_BY_KAROL = (
+    "SPY", "QQQ", "IWM", "XLF", "XLK", "SMH", "US2000.r", "EFA", "EEM", "EWJ", "FXI", "MCHI", "INDA", "EWZ",
+    "EWY", "EWT", "EU50.r", "UK100.r", "Nikkei225", "HK50.r", "CHINAH.r", "SPI200.r", "TLT", "USNote10Y",
+    "EUB10Y", "EUB5Y", "EUB2Y", "EUB30Y", "LongGilt", "GLD", "GDX", "XPTUSD.r", "XAGUSD", "USO", "BNO", "UNG",
+    "DBC", "XOP", "Wheat-Cr", "Soybean-Cr", "LTCUSD", "BCHUSD", "IBIT", "GBPUSD+", "AUDUSD+",
+    "SP500ft.r", "UK100ft.r", "HK50ft.r", "JPN225ft", "CL-OIL", "UKOUSDft",
+)
+ALREADY_IN_MW = ("SP500.r", "XAUUSD+", "UKOUSD", "USOUSD", "BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "EURUSD+", "USDJPY+")
+UNIVERSE = ADDED_BY_KAROL + ALREADY_IN_MW
+
+ALLOWED = frozenset({
+    "initialize", "shutdown", "last_error", "version", "terminal_info",
+    "symbols_get", "symbol_info", "symbol_info_tick", "copy_rates_from_pos", "copy_rates_range",
+})
+
+
+def log(msg: str) -> None:
+    line = f"{dt.datetime.now().isoformat(timespec='seconds')} {msg}"
+    print(line, flush=True)
+    LOGS.mkdir(parents=True, exist_ok=True)
+    with open(LOGS / "collect_d1_universe.log", "a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+
+class StrictReadOnlyMT5:
+    """Przepuszcza tylko ALLOWED i stałe (WIELKIE_LITERY). symbol_select i account_info są zabronione."""
+
+    def __init__(self, module):
+        self._m = module
+
+    def __getattr__(self, name: str):
+        if name in FORBIDDEN or name.startswith(("history_", "order", "position")) \
+                or name in ("symbol_select", "account_info", "login"):
+            raise PermissionError(f"Zabronione wywołanie MetaTrader5.{name} (tylko odczyt)")
+        if name.isupper():
+            return getattr(self._m, name)
+        if name not in ALLOWED:
+            raise PermissionError(f"MetaTrader5.{name} nie jest na liście dozwolonych")
+        return getattr(self._m, name)
+
+
+def fetch_d1(mt5, symbol: str, maxbars: int, tries: int = 8):
+    """Cała dostępna historia D1; powtarza do ustabilizowania liczby świec. Zwraca (świece, liczba prób)."""
+    best, last_n = None, -1
+    for attempt in range(1, tries + 1):
+        count, rates = maxbars, None
+        while count >= 1000 and rates is None:
+            rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_D1, 0, count)
+            if rates is None or len(rates) == 0:
+                rates = None
+                count //= 2
+        n = 0 if rates is None else len(rates)
+        if rates is not None and (best is None or n > len(best)):
+            best = rates
+        if n == last_n and n > 0:
+            return best, attempt
+        last_n = n
+        time.sleep(2 if attempt > 1 else 1)
+    return best, tries
+
+
+def server_offset_h(mt5) -> int | None:
+    for s in ("BTCUSD", "ETHUSD"):
+        t = mt5.symbol_info_tick(s)
+        if t is not None and t.time and abs(t.time - time.time()) < 6 * 3600:
+            return int(round((t.time - time.time()) / 3600.0))
+    return None
+
+
+def build_meta(symbol: str, si, tick, rows, skipped, raw: bytes, attempts: int, read_at: str) -> dict:
+    dates = [r["date"] for r in rows]
+    return {
+        "market": symbol, "symbol": symbol, "description": si.description, "path": si.path,
+        "digits": int(si.digits), "point": float(si.point), "trade_contract_size": float(si.trade_contract_size),
+        "spread_points": int(si.spread), "spread_float": bool(si.spread_float),
+        "spread_median_d1_points": statistics.median(int(r["spread"]) for r in rows),
+        "swap_long": float(si.swap_long), "swap_short": float(si.swap_short),
+        "swap_mode": int(si.swap_mode), "swap_rollover3days": int(si.swap_rollover3days),
+        "currency_base": si.currency_base, "currency_profit": si.currency_profit,
+        "trade_mode": TRADE_MODES.get(si.trade_mode, si.trade_mode),
+        "trade_calc_mode": CALC_MODES.get(int(si.trade_calc_mode), int(si.trade_calc_mode)),
+        **sizing(si),
+        "tick_bid": float(tick.bid) if tick is not None else None,
+        "tick_ask": float(tick.ask) if tick is not None else None,
+        "tick_time_utc_epoch_server": int(tick.time) if tick is not None else None,
+        "bars": len(rows), "first_date": dates[0], "last_date": dates[-1],
+        "excluded_forming_bar_dates": skipped,
+        "gaps_over_5_days": gaps(dates),
+        "history_fetch_attempts": attempts,
+        "csv_sha256": hashlib.sha256(raw).hexdigest(),
+        "read_at_utc": read_at,
+        "candle_day": "dzień serwera MT5 (czas serwera zapisany jako epoch)",
+    }
+
+
+def unusual(meta: dict) -> list[str]:
+    out = []
+    if meta["bars"] < MIN_BARS:
+        out.append(f"tylko {meta['bars']} świec")
+    if meta["gaps_over_5_days"]:
+        out.append(f"{len(meta['gaps_over_5_days'])} luk > 5 dni")
+    if meta["tick_bid"] is None or not meta["tick_bid"]:
+        out.append("brak ticka")
+    if meta["trade_mode"] != "FULL":
+        out.append(f"tryb {meta['trade_mode']}")
+    return out
+
+
+def report(metas, skipped, failures, mw_before, mw_after, offset_h, maxbars, read_at) -> str:
+    L = ["# Dane D1 — uniwersum kandydatów do serii 2", "",
+         f"- Odczyt: {read_at} UTC, skrypt `research/daily-data/scripts/collect_d1_universe.py` (tylko odczyt).",
+         "- Pliki danych: `research/daily-data/data/uniwersum/` (pomijane przez Git).",
+         f"- Symboli na liście: {len(UNIVERSE)}; pobrano: {len(metas)}; pominięto (poza Market Watch lub brak u brokera): {len(skipped)}; błędy: {len(failures)}.",
+         f"- Symbole w Market Watch przed odczytem: {mw_before}, po odczycie: {mw_after}"
+         + (" (bez zmian)." if mw_before == mw_after else " — **ZMIANA, sprawdzić**."),
+         "- `symbol_select` nie było wywołane (skrypt blokuje je w każdej postaci), `account_info` także.",
+         f"- Limit świec terminala (maxbars): {maxbars}. Przesunięcie serwera względem UTC: "
+         + (f"{offset_h:+d} h." if offset_h is not None else "nie udało się zmierzyć."),
+         "", "## Pobrane symbole", "",
+         "| Symbol | Od | Do | Świece | Luki > 5 dni | Spread teraz / mediana D1 [pkt] | Swap long / short (tryb, 3x dzień) | Tryb | Próby |",
+         "|---|---|---|---:|---:|---|---|---|---:|"]
+    for m in metas:
+        L.append(f"| `{m['symbol']}` | {m['first_date']} | {m['last_date']} | {m['bars']} | {len(m['gaps_over_5_days'])} | "
+                 f"{m['spread_points']} / {m['spread_median_d1_points']:g} | "
+                 f"{m['swap_long']:g} / {m['swap_short']:g} ({m['swap_mode']}, {m['swap_rollover3days']}) | "
+                 f"{m['trade_mode']} | {m['history_fetch_attempts']} |")
+    short = [m for m in metas if m["bars"] < MIN_BARS]
+    L += ["", f"## Mniej niż {MIN_BARS} świec", ""]
+    L += [f"- `{m['symbol']}`: {m['bars']} świec od {m['first_date']}." for m in short] or ["- Brak."]
+    L += ["", "## Inne rzeczy nietypowe", ""]
+    odd = [(m["symbol"], [u for u in unusual(m) if "świec" not in u]) for m in metas]
+    L += [f"- `{s}`: {', '.join(u)}." for s, u in odd if u] or ["- Brak."]
+    L += ["", "## Pominięte", ""]
+    L += [f"- `{s}`: {why}." for s, why in skipped] or ["- Brak."]
+    L += ["", "## Błędy pobrania", ""]
+    L += [f"- {f}" for f in failures] or ["- Brak."]
+    L += ["", "Świeca D1 obejmuje dzień serwera MT5; świeca bieżącego, niezamkniętego dnia jest pomijana."]
+    return "\n".join(L) + "\n"
+
+
+def run(symbols=UNIVERSE) -> int:
+    import MetaTrader5 as raw_mt5  # tylko w środowisku research/scalp-smc/.venv
+    mt5 = StrictReadOnlyMT5(raw_mt5)
+    term = os.environ.get("MT5_TERMINAL", r"C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe")
+    if not mt5.initialize(path=term):
+        log(f"initialize() nie powiodło się: {mt5.last_error()}")
+        return 2
+    read_at = dt.datetime.now(UTC).isoformat(timespec="seconds")
+    metas, skipped, failures = [], [], []
+    try:
+        ti = mt5.terminal_info()
+        maxbars = int(getattr(ti, "maxbars", 0) or 100000)
+        mw_before = sum(1 for s in (mt5.symbols_get() or []) if s.visible)
+        log(f"terminal build={mt5.version()} connected={getattr(ti, 'connected', None)} maxbars={maxbars} MW={mw_before}")
+        offset = server_offset_h(mt5)
+        server_now = time.time() + (offset if offset is not None else 2) * 3600
+        OUT.mkdir(parents=True, exist_ok=True)
+        for symbol in symbols:
+            try:
+                si = mt5.symbol_info(symbol)
+                if si is None:
+                    skipped.append((symbol, "brak symbolu u brokera"))
+                    log(f"{symbol}: brak u brokera")
+                    continue
+                if not si.visible:
+                    skipped.append((symbol, "poza Market Watch"))
+                    log(f"{symbol}: poza Market Watch — pominięty")
+                    continue
+                tick = mt5.symbol_info_tick(symbol)
+                rates, attempts = fetch_d1(mt5, symbol, maxbars)
+                if rates is None or len(rates) == 0:
+                    failures.append(f"`{symbol}`: brak świec D1 ({mt5.last_error()}).")
+                    continue
+                rows, forming = bars_to_rows(rates, int(si.digits), server_now)
+                if not rows:
+                    failures.append(f"`{symbol}`: brak zamkniętych świec.")
+                    continue
+                raw = csv_bytes(rows)
+                (OUT / f"{symbol}_D1.csv").write_bytes(raw)
+                meta = build_meta(symbol, si, tick, rows, forming, raw, attempts, read_at)
+                (OUT / f"{symbol}_D1.meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n",
+                                                            encoding="utf-8")
+                metas.append(meta)
+                log(f"{symbol}: {meta['bars']} świec {meta['first_date']}..{meta['last_date']}, próby {attempts}"
+                    + (f", uwagi: {', '.join(unusual(meta))}" if unusual(meta) else ""))
+            except Exception as exc:  # jeden symbol nie przerywa reszty
+                failures.append(f"`{symbol}`: błąd {type(exc).__name__}: {exc}")
+                log(f"{symbol}: błąd {exc!r}")
+        mw_after = sum(1 for s in (mt5.symbols_get() or []) if s.visible)
+    finally:
+        mt5.shutdown()
+    REPORTS.mkdir(parents=True, exist_ok=True)
+    (REPORTS / "DANE_D1_UNIWERSUM.md").write_text(
+        report(metas, skipped, failures, mw_before, mw_after, offset, maxbars, read_at), encoding="utf-8")
+    log(f"gotowe: pobrano {len(metas)}, pominięto {len(skipped)}, błędy {len(failures)}, MW {mw_before}->{mw_after}")
+    if mw_before != mw_after:
+        return 3
+    return 0 if metas else 1
+
+
+# ---------- autotest bez terminala ----------
+
+def selftest() -> int:
+    from types import SimpleNamespace as NS
+
+    class Fake:
+        TIMEFRAME_D1 = 16408
+
+        def __getattr__(self, name):
+            raise AssertionError(f"wrapper przepuścił {name} do modułu")
+
+    ro = StrictReadOnlyMT5(Fake())
+    for bad in ("symbol_select", "account_info", "login", "order_send", "order_check", "order_calc_margin",
+                "orders_get", "orders_total", "positions_get", "positions_total", "history_deals_get",
+                "history_orders_get", "symbols_total", "market_book_add"):
+        try:
+            getattr(ro, bad)
+            raise AssertionError(f"{bad} przepuszczone")
+        except PermissionError:
+            pass
+    assert ro.TIMEFRAME_D1 == 16408
+    assert len(UNIVERSE) == 61 and len(set(UNIVERSE)) == 61
+
+    rows = [{"date": d, "open": "1", "high": "1", "low": "1", "close": "1", "tick_volume": "1", "spread": s}
+            for d, s in (("2026-01-01", "3"), ("2026-01-09", "5"), ("2026-01-12", "4"))]
+    si = NS(description="Test", path="ETF\\TEST", digits=2, point=0.01, trade_contract_size=1.0, spread=6,
+            spread_float=True, swap_long=-1.5, swap_short=0.2, swap_mode=1, swap_rollover3days=3,
+            currency_base="USD", currency_profit="USD", currency_margin="USD", trade_mode=4, trade_calc_mode=32,
+            volume_min=1.0, volume_step=1.0, volume_max=1000.0, trade_tick_size=0.01, trade_tick_value=0.01)
+    meta = build_meta("SPY", si, None, rows, [], csv_bytes(rows), 3, "2026-11-20T00:00:00+00:00")
+    assert meta["market"] == "SPY" and meta["trade_calc_mode"] == "EXCH_STOCKS" and meta["path"] == "ETF\\TEST"
+    assert meta["history_fetch_attempts"] == 3 and meta["spread_median_d1_points"] == 4
+    assert "server" not in meta and not any("login" in k for k in meta)
+    assert unusual(meta) == ["tylko 3 świec", "1 luk > 5 dni", "brak ticka"]
+    txt = report([meta], [("CL-OIL", "poza Market Watch")], [], 23, 23, 2, 100000, "2026-11-20T00:00:00+00:00")
+    assert "`CL-OIL`: poza Market Watch" in txt and "(bez zmian)" in txt and "nie było wywołane" in txt
+    assert "ZMIANA" in report([meta], [], [], 23, 24, None, 100000, "x")
+    print("selftest OK")
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--selftest", action="store_true", help="testy bez połączenia z terminalem")
+    a = ap.parse_args()
+    return selftest() if a.selftest else run()
+
+
+if __name__ == "__main__":
+    sys.exit(main())
