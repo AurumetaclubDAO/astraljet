@@ -189,3 +189,51 @@ def test_routes_bind_and_static_boundary(tmp_path):
 def test_client_rendering_has_no_html_injection():
     js=(ROOT/'src/astraljet/dashboard/web/app.js').read_text(encoding='utf-8')
     assert 'innerHTML' not in js and 'textContent' in js
+
+
+# --- Terminal DEMO obok terminala LIVE (SOLYG-OMEN, 20.11.2026) ---
+DEMO_EXE = r'E:\MT5-DEMO\Vantage\terminal64.exe'
+LIVE_EXE = r'C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe'
+
+
+def proc(exe, name='terminal64.exe'):
+    return NS(info={'name': name, 'exe': exe})
+
+
+def test_select_terminal_ignores_live_running_alongside():
+    from astraljet.dashboard.collectors.mt5 import select_terminal
+    c = cfg(terminal_path=DEMO_EXE, forbidden_terminal_paths=(LIVE_EXE,))
+    assert select_terminal(c, [proc(LIVE_EXE), proc(DEMO_EXE)])
+    assert not select_terminal(c, [proc(LIVE_EXE)])  # sam LIVE: brak połączenia
+    assert not select_terminal(c, [proc(DEMO_EXE), proc(DEMO_EXE)])  # niejednoznaczne
+    assert not select_terminal(c, [proc(None), proc(LIVE_EXE)])
+
+
+def test_live_path_cannot_be_demo_terminal():
+    with pytest.raises(ValueError):
+        cfg(terminal_path=LIVE_EXE, forbidden_terminal_paths=(LIVE_EXE.upper(),))
+
+
+def test_worker_never_initializes_when_only_live_runs(monkeypatch):
+    import sys as _sys
+    from astraljet.dashboard.collectors import mt5 as m
+    sdk = FakeSDK(login=LIVE_LOGIN, mode=2, server='VantageMarkets-Live')
+    sdk.initialize = lambda *a, **k: pytest.fail('initialize na terminalu LIVE')
+    monkeypatch.setitem(_sys.modules, 'MetaTrader5', sdk)
+    monkeypatch.setitem(_sys.modules, 'psutil', NS(process_iter=lambda attrs: [proc(LIVE_EXE)]))
+    out = m.worker(cfg(terminal_path=DEMO_EXE, forbidden_terminal_paths=(LIVE_EXE,)))
+    assert out['account']['value'] is None
+
+
+def test_empty_terminal_path_means_no_demo_terminal():
+    # SOLYG-OMEN od 20.11.2026: obie instalacje są LIVE, terminala DEMO brak.
+    from astraljet.dashboard.collectors.mt5 import select_terminal
+    c = cfg(terminal_path='', forbidden_terminal_paths=(LIVE_EXE, DEMO_EXE))
+    assert not select_terminal(c, [proc(LIVE_EXE), proc(DEMO_EXE)])
+
+
+def test_disabled_mt5_never_starts_worker():
+    from astraljet.dashboard.collectors import mt5 as m
+    run = lambda *a, **k: pytest.fail('uruchomiono proces odczytu MT5')
+    out = m.collect(cfg(mt5_enabled=False, terminal_path=''), run=run)
+    assert out['account']['value'] is None

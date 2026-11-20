@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+import os
 from pathlib import Path
 import tomllib
 
@@ -35,6 +36,8 @@ class Config:
     # Brak numeru DEMO oznacza blokadę każdego odczytu MT5 (fail-closed).
     demo_login: int | None = None
     forbidden_logins: tuple = ()
+    # Instalacje terminala, z którymi panel nigdy się nie łączy (np. terminal LIVE działający obok DEMO).
+    forbidden_terminal_paths: tuple = ()
     schedule_enabled: bool = True
     freshness: dict = field(default_factory=lambda: dict(mt5=90, schedule=90, runner=1200, arena=1200, funding=1800, shadow=108000, config=90))
 
@@ -49,6 +52,15 @@ class Config:
             raise ValueError('Niepoprawny zabroniony numer rachunku')
         if self.demo_login is not None and self.demo_login in self.forbidden_logins:
             raise ValueError('Rachunek DEMO nie może być na liście zabronionych')
+        if any(not isinstance(x, str) or not x for x in self.forbidden_terminal_paths):
+            raise ValueError('Niepoprawna zabroniona ścieżka terminala')
+        if same_path(self.terminal_path, *self.forbidden_terminal_paths):
+            raise ValueError('Ścieżka terminala DEMO jest na liście zabronionych')
+
+
+def same_path(path, *others):
+    norm = lambda p: os.path.normcase(os.path.abspath(p))
+    return any(norm(path) == norm(o) for o in others)
 
 
 def load_config():
@@ -58,6 +70,7 @@ def load_config():
     defaults = Config()
     data['desktop'] = Path(data.get('desktop', defaults.desktop))
     data['freshness'] = defaults.freshness | data.get('freshness', {})
+    data['forbidden_terminal_paths'] = tuple(data.get('forbidden_terminal_paths', ()))
     data.pop('demo_login', None)
     data.pop('forbidden_logins', None)
     data.update(load_accounts())

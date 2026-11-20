@@ -175,16 +175,31 @@ def worker(config):
     try:
         import psutil
         import MetaTrader5 as sdk
-        expected = os.path.normcase(os.path.realpath(config.terminal_path))
-        candidates = []
-        for process in psutil.process_iter(['name', 'exe']):
-            if (process.info['name'] or '').lower() == 'terminal64.exe':
-                candidates.append(process.info['exe'])
-        if len(candidates) != 1 or not candidates[0] or os.path.normcase(os.path.realpath(candidates[0])) != expected:
+        if not select_terminal(config, psutil.process_iter(['name', 'exe'])):
             return failure('Brak jednoznacznego, uruchomionego terminala DEMO')
         return read_sdk(sdk, config)
     except Exception:
         return failure('Adapter MT5 niedostępny')
+
+
+def select_terminal(config, processes):
+    """True tylko gdy działa dokładnie jeden terminal pod ścieżką DEMO i nie jest to ścieżka zabroniona (LIVE).
+
+    Inne terminale (np. LIVE w osobnej instalacji) mogą działać obok; panel się z nimi nie łączy.
+    Pusta ścieżka oznacza brak terminala DEMO na tym komputerze.
+    """
+    if not config.terminal_path:
+        return False
+    norm = lambda p: os.path.normcase(os.path.realpath(p))
+    expected = norm(config.terminal_path)
+    if any(norm(p) == expected for p in config.forbidden_terminal_paths):
+        return False
+    matches = 0
+    for process in processes:
+        info = getattr(process, 'info', process)
+        if (info.get('name') or '').lower() == 'terminal64.exe' and info.get('exe') and norm(info['exe']) == expected:
+            matches += 1
+    return matches == 1
 
 
 def collect(config, run=subprocess.run):

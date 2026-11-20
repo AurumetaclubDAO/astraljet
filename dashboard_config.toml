@@ -1,8 +1,14 @@
 refresh_seconds = 45
 desktop = 'C:\Users\karol\Desktop'
-terminal_path = 'C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe'
+# Na SOLYG-OMEN nie ma terminala DEMO: obie instalacje poniżej są zalogowane na LIVE
+# (decyzja Karola 20.11.2026). Pusta ścieżka i mt5_enabled = false: panel nie łączy się z MT5.
+terminal_path = ''
+forbidden_terminal_paths = [
+  'C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe',
+  'E:\MT5-DEMO\Vantage\terminal64.exe',
+]
 server = 'VantageMarkets-Demo'
-mt5_enabled = true
+mt5_enabled = false
 schedule_enabled = true
 history_days = 30
 
