@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Protocol
 
@@ -20,6 +20,9 @@ class FrozenContext:
     worker_id: str
     lease_id: str
     data_observed_at: str
+    # Ceny instrumentów zaobserwowane razem z danymi sygnału (w chwili data_observed_at).
+    # Służą do wyceny pozostałych pozycji przy limicie max_gross_exposure; brak ceny = odmowa.
+    marks: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)

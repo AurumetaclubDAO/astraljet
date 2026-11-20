@@ -7,8 +7,8 @@ from astraljet.domain.errors import DomainBlockedError, ValidationError
 from astraljet.domain.validation import canonical_json
 from astraljet.infrastructure.database import Database
 
-from .guard import ExecutorGuard, _iso
-from .paper import _receipt_from_row
+from .guard import GROSS_LIMIT_KEY, ExecutorGuard, _iso
+from .paper import DUPLICATE_INTENT, _receipt_from_row
 from .ports import ExecutionReceipt, FrozenContext, Health, OrderIntent, PositionSnapshot
 
 
@@ -56,6 +56,15 @@ class DemoAdapter:
         health = self.health(context.mandate)
         if health.state is not ExecutionResultState.ACCEPTED:
             return ExecutionReceipt(health.state, intent.intent_id, None, health.message)
+        if GROSS_LIMIT_KEY in context.mandate.limits:
+            # Adapter testowy nie zna pozycji ani cen rachunku, więc nie umie policzyć limitu łącznego.
+            raise self.guard.deny_execution(
+                "Adapter DEMO nie wycenia portfela; mandat z limitem łącznej ekspozycji jest odrzucany.",
+                "gross_exposure_unsupported",
+                "Użyj PAPER_CONTINUOUS albo adaptera, który odczytuje pozycje i ceny rachunku.",
+                environment_id=context.environment_id,
+                actor=context.worker_id,
+            )
         self.guard.authorize(context=context, intent=intent, now=now)
         state = ExecutionResultState.UNCERTAIN if self.simulate_next_uncertain else ExecutionResultState.ACCEPTED
         self.simulate_next_uncertain = False
@@ -73,12 +82,18 @@ class DemoAdapter:
                 "SELECT intent_id FROM execution_signal_claims WHERE environment_id = ? AND signal_id = ?",
                 (context.environment_id, intent.signal_id),
             ).fetchone()
+            reused_intent = connection.execute(
+                "SELECT 1 FROM execution_signal_claims WHERE environment_id = ? AND intent_id = ?",
+                (context.environment_id, intent.intent_id),
+            ).fetchone()
             if claimed:
                 denial = (
                     "Ten sygnał został już wykorzystany w tym środowisku.",
                     "duplicate_signal",
                     "Nie wykonuj sygnału ponownie; utwórz nowy sygnał z nową przyczyną.",
                 )
+            elif reused_intent:
+                denial = DUPLICATE_INTENT
             else:
                 connection.execute(
                     """

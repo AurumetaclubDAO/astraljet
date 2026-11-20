@@ -9,7 +9,7 @@ from astraljet.domain.errors import DomainBlockedError, ValidationError
 from astraljet.domain.validation import canonical_json
 from astraljet.infrastructure.database import Database
 
-from .guard import ExecutorGuard, _iso
+from .guard import ExecutorGuard, _iso, gross_exposure_limit, mark_price
 from .ports import ExecutionReceipt, FrozenContext, Health, OrderIntent, PositionSnapshot
 
 
@@ -21,6 +21,55 @@ def _receipt_from_row(row: object) -> ExecutionReceipt:
         message="Duplikat klucza idempotencji; nie wykonano ponownie.",
         previous_state=ExecutionResultState(row["state"]),
     )
+
+
+DUPLICATE_INTENT = (
+    "Ta intencja została już przyjęta w tym środowisku pod innym kluczem lub sygnałem.",
+    "duplicate_intent",
+    "Nie wykonuj intencji ponownie; nowe zlecenie wymaga nowej intencji i nowego sygnału.",
+)
+
+
+def _gross_exposure_denial(
+    connection: object,
+    context: FrozenContext,
+    intent: OrderIntent,
+    quantity: Decimal,
+    next_quantity: Decimal,
+) -> tuple[str, str, str] | None:
+    """Limit łącznej ekspozycji brutto portfela PO zleceniu (suma |ilość| * cena po instrumentach).
+
+    Instrument zlecenia wyceniany jest ceną referencyjną zlecenia, pozostałe pozycje ceną z
+    context.marks. Zlecenie zmniejszające pozycję w swoim instrumencie zmniejsza ekspozycję
+    przy każdej wycenie, więc przechodzi także ponad limitem i bez cen pozostałych pozycji.
+    """
+    limit = gross_exposure_limit(context.mandate.limits)  # poprawność sprawdziła już bramka
+    if limit is None or abs(next_quantity) < abs(quantity):
+        return None
+    rows = connection.execute(
+        "SELECT instrument, quantity_text FROM paper_positions WHERE environment_id = ? AND instrument != ?",
+        (context.environment_id, intent.instrument),
+    ).fetchall()
+    gross = abs(next_quantity) * intent.reference_price
+    for row in rows:
+        held = Decimal(row["quantity_text"])
+        if held == 0:
+            continue
+        price = mark_price(context.marks, row["instrument"])
+        if price is None:
+            return (
+                f"Brak poprawnej ceny do wyceny pozycji {row['instrument']} przy limicie łącznej ekspozycji.",
+                "gross_exposure_price_missing",
+                "Przekaż w kontekście świeże ceny wszystkich otwartych pozycji; nie zgaduj wyceny.",
+            )
+        gross += abs(held) * price
+    if gross > limit:
+        return (
+            "Po zleceniu łączna ekspozycja portfela przekroczyłaby limit mandatu.",
+            "gross_exposure_exceeded",
+            "Zmniejsz zlecenie albo inne pozycje; nie zwiększaj limitu bez decyzji Karola.",
+        )
+    return None
 
 
 class PaperExecutor:
@@ -69,12 +118,18 @@ class PaperExecutor:
                 "SELECT intent_id FROM execution_signal_claims WHERE environment_id = ? AND signal_id = ?",
                 (context.environment_id, intent.signal_id),
             ).fetchone()
+            reused_intent = connection.execute(
+                "SELECT 1 FROM execution_signal_claims WHERE environment_id = ? AND intent_id = ?",
+                (context.environment_id, intent.intent_id),
+            ).fetchone()
             if claimed:
                 denial = (
                     "Ten sygnał został już wykorzystany w tym środowisku.",
                     "duplicate_signal",
                     "Nie wykonuj sygnału ponownie; utwórz nowy sygnał z nową przyczyną.",
                 )
+            elif reused_intent:
+                denial = DUPLICATE_INTENT
             else:
                 current = connection.execute(
                     "SELECT quantity_text FROM paper_positions WHERE environment_id = ? AND instrument = ?",
@@ -103,6 +158,8 @@ class PaperExecutor:
                         "Zmniejsz zlecenie lub ekspozycję; nie zwiększaj limitu bez decyzji Karola.",
                     )
                 else:
+                    denial = _gross_exposure_denial(connection, context, intent, quantity, next_quantity)
+                if denial is None:
                     connection.execute(
                         """
                         INSERT INTO execution_signal_claims(

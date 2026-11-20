@@ -16,7 +16,6 @@ Bramka nie ma limitu łącznej ekspozycji na wszystkich instrumentach naraz.
 from __future__ import annotations
 
 import dataclasses
-import sqlite3
 import tempfile
 import unittest
 from datetime import datetime, timezone
@@ -182,12 +181,12 @@ class NoDoubleOrder(ExecutorCase):
         executor = PaperExecutor(self.database, self.guard)
         executor.submit_intent(self.ctx(), order("INTENT-TWICE", signal_id="SIGNAL-ONE"),
                                idempotency_key="tq-twice-v1", now=NOW)
-        # Dziś zatrzymuje to ograniczenie bazy (surowy błąd); czysta odmowa bramki też spełni test.
-        with self.assertRaises((DomainBlockedError, sqlite3.IntegrityError)):
-            executor.submit_intent(self.ctx(), order("INTENT-TWICE", signal_id="SIGNAL-TWO"),
-                                   idempotency_key="tq-twice-v2", now=NOW)
+        # Czysta odmowa bramki z wpisem executor.blocked (wcześniej surowy sqlite3.IntegrityError).
+        self.assertEqual("duplicate_intent", self.blocker(lambda: executor.submit_intent(
+            self.ctx(), order("INTENT-TWICE", signal_id="SIGNAL-TWO"), idempotency_key="tq-twice-v2", now=NOW)))
         self.assertEqual({"BTCUSD": "1"}, executor.positions(self.environment_id).quantities)
         self.assertEqual([("INTENT-TWICE", "accepted")], self.intents())
+        self.assertEqual(["duplicate_intent"], self.blocked_events())
 
 
 class GateRefusesBadValues(ExecutorCase):
