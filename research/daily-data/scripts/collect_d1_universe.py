@@ -17,7 +17,11 @@ Wynik:
     research/daily-data/reports/DANE_D1_UNIWERSUM.md
     research/daily-data/logs/collect_d1_universe.log
 
+Terminal trzeba wskazać jawnie w MT5_TERMINAL; dozwolone są tylko dwie znane instalacje (TERMINALS).
+Skrypt podpina się wyłącznie do terminala, który już działa; nigdy go nie uruchamia.
+
 Użycie (środowisko z pakietem MetaTrader5):
+    $env:MT5_TERMINAL = 'E:\\MT5-DEMO\\Vantage\\terminal64.exe'   # terminal danych
     research\\scalp-smc\\.venv\\Scripts\\python.exe research\\daily-data\\scripts\\collect_d1_universe.py
     python research/daily-data/scripts/collect_d1_universe.py --selftest   (bez terminala)
 """
@@ -45,7 +49,8 @@ CALC_MODES = {0: "FOREX", 1: "FUTURES", 2: "CFD", 3: "CFDINDEX", 4: "CFDLEVERAGE
               36: "EXCH_OPTIONS_MARGIN", 37: "EXCH_BONDS", 38: "EXCH_STOCKS_MOEX", 39: "EXCH_BONDS_MOEX",
               64: "SERV_COLLATERAL"}
 
-# Lista dodana ręcznie przez Karola (51; ostatnie 6 opcjonalne) + 10 kandydatów już obecnych w Market Watch.
+# Lista Karola (51; ostatnie 6 opcjonalne) + 10 symboli pobranych 20.11 z terminala głównego.
+# Symbol musi być widoczny w Market Watch terminala, z którego czytamy; skrypt go nie dodaje.
 ADDED_BY_KAROL = (
     "SPY", "QQQ", "IWM", "XLF", "XLK", "SMH", "US2000.r", "EFA", "EEM", "EWJ", "FXI", "MCHI", "INDA", "EWZ",
     "EWY", "EWT", "EU50.r", "UK100.r", "Nikkei225", "HK50.r", "CHINAH.r", "SPI200.r", "TLT", "USNote10Y",
@@ -53,8 +58,46 @@ ADDED_BY_KAROL = (
     "DBC", "XOP", "Wheat-Cr", "Soybean-Cr", "LTCUSD", "BCHUSD", "IBIT", "GBPUSD+", "AUDUSD+",
     "SP500ft.r", "UK100ft.r", "HK50ft.r", "JPN225ft", "CL-OIL", "UKOUSDft",
 )
-ALREADY_IN_MW = ("SP500.r", "XAUUSD+", "UKOUSD", "USOUSD", "BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "EURUSD+", "USDJPY+")
-UNIVERSE = ADDED_BY_KAROL + ALREADY_IN_MW
+READ_EARLIER = ("SP500.r", "XAUUSD+", "UKOUSD", "USOUSD", "BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "EURUSD+", "USDJPY+")
+UNIVERSE = ADDED_BY_KAROL + READ_EARLIER
+
+# Znane instalacje na SOLYG-OMEN. Obie są zalogowane na rachunek LIVE; nazwa katalogu E:\MT5-DEMO jest historyczna.
+TERMINALS = {
+    r"C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe": r"terminal główny (C:\Program Files\Vantage Markets MT5 Terminal)",
+    r"E:\MT5-DEMO\Vantage\terminal64.exe": r"terminal danych (E:\MT5-DEMO\Vantage)",
+}
+
+
+def norm_path(p: str) -> str:
+    return os.path.normcase(os.path.abspath(p))
+
+
+def terminal_label(path: str | None) -> str | None:
+    """Etykieta znanej instalacji albo None (nieznana ścieżka lub brak MT5_TERMINAL)."""
+    if not path:
+        return None
+    return next((label for p, label in TERMINALS.items() if norm_path(p) == norm_path(path)), None)
+
+
+def running_terminal_paths() -> list[str]:
+    """Ścieżki działających procesów terminal64.exe (bez psutil: przez PowerShell, tylko odczyt)."""
+    import subprocess
+    out = subprocess.run(
+        ["powershell", "-NoProfile", "-Command",
+         "Get-Process terminal64 -ErrorAction SilentlyContinue | ForEach-Object { $_.Path }"],
+        capture_output=True, text=True, timeout=30)
+    return [line.strip() for line in out.stdout.splitlines() if line.strip()]
+
+
+def check_terminal(path: str | None, running: list[str]) -> str:
+    """Zwraca etykietę terminala albo rzuca RuntimeError. Terminal musi już działać (dokładnie jeden proces)."""
+    label = terminal_label(path)
+    if label is None:
+        raise RuntimeError("MT5_TERMINAL musi wskazywać jedną ze znanych instalacji (TERMINALS)")
+    n = sum(1 for p in running if norm_path(p) == norm_path(path))
+    if n != 1:
+        raise RuntimeError(f"terminal {label} nie działa jako dokładnie jeden proces ({n}); skrypt go nie uruchamia")
+    return label
 
 ALLOWED = frozenset({
     "initialize", "shutdown", "last_error", "version", "terminal_info",
@@ -115,10 +158,12 @@ def server_offset_h(mt5) -> int | None:
     return None
 
 
-def build_meta(symbol: str, si, tick, rows, skipped, raw: bytes, attempts: int, read_at: str) -> dict:
+def build_meta(symbol: str, si, tick, rows, skipped, raw: bytes, attempts: int, read_at: str,
+               terminal: str | None = None) -> dict:
     dates = [r["date"] for r in rows]
     return {
         "market": symbol, "symbol": symbol, "description": si.description, "path": si.path,
+        "terminal": terminal,
         "digits": int(si.digits), "point": float(si.point), "trade_contract_size": float(si.trade_contract_size),
         "spread_points": int(si.spread), "spread_float": bool(si.spread_float),
         "spread_median_d1_points": statistics.median(int(r["spread"]) for r in rows),
@@ -154,9 +199,13 @@ def unusual(meta: dict) -> list[str]:
     return out
 
 
-def report(metas, skipped, failures, mw_before, mw_after, offset_h, maxbars, read_at) -> str:
+def report(metas, skipped, failures, mw_before, mw_after, offset_h, maxbars, read_at, terminal="nieznany",
+           algo_trading=None) -> str:
+    algo = {True: "włączony", False: "wyłączony"}.get(algo_trading, "nieznany")
     L = ["# Dane D1 — uniwersum kandydatów do serii 2", "",
          f"- Odczyt: {read_at} UTC, skrypt `research/daily-data/scripts/collect_d1_universe.py` (tylko odczyt).",
+         f"- Źródło: {terminal}.",
+         f"- Handel automatyczny w terminalu (przycisk Algo Trading) w chwili odczytu: {algo}.",
          "- Pliki danych: `research/daily-data/data/uniwersum/` (pomijane przez Git).",
          f"- Symboli na liście: {len(UNIVERSE)}; pobrano: {len(metas)}; pominięto (poza Market Watch lub brak u brokera): {len(skipped)}; błędy: {len(failures)}.",
          f"- Symbole w Market Watch przed odczytem: {mw_before}, po odczycie: {mw_after}"
@@ -189,14 +238,22 @@ def report(metas, skipped, failures, mw_before, mw_after, offset_h, maxbars, rea
 def run(symbols=UNIVERSE) -> int:
     import MetaTrader5 as raw_mt5  # tylko w środowisku research/scalp-smc/.venv
     mt5 = StrictReadOnlyMT5(raw_mt5)
-    term = os.environ.get("MT5_TERMINAL", r"C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe")
+    term = os.environ.get("MT5_TERMINAL")
+    try:
+        label = check_terminal(term, running_terminal_paths())
+    except Exception as exc:
+        log(f"odmowa połączenia: {exc}")
+        return 2
+    log(f"terminal: {label}")
     if not mt5.initialize(path=term):
         log(f"initialize() nie powiodło się: {mt5.last_error()}")
         return 2
     read_at = dt.datetime.now(UTC).isoformat(timespec="seconds")
     metas, skipped, failures = [], [], []
+    algo_trading = None
     try:
         ti = mt5.terminal_info()
+        algo_trading = getattr(ti, "trade_allowed", None)
         maxbars = int(getattr(ti, "maxbars", 0) or 100000)
         mw_before = sum(1 for s in (mt5.symbols_get() or []) if s.visible)
         log(f"terminal build={mt5.version()} connected={getattr(ti, 'connected', None)} maxbars={maxbars} MW={mw_before}")
@@ -225,7 +282,7 @@ def run(symbols=UNIVERSE) -> int:
                     continue
                 raw = csv_bytes(rows)
                 (OUT / f"{symbol}_D1.csv").write_bytes(raw)
-                meta = build_meta(symbol, si, tick, rows, forming, raw, attempts, read_at)
+                meta = build_meta(symbol, si, tick, rows, forming, raw, attempts, read_at, label)
                 (OUT / f"{symbol}_D1.meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n",
                                                             encoding="utf-8")
                 metas.append(meta)
@@ -239,7 +296,8 @@ def run(symbols=UNIVERSE) -> int:
         mt5.shutdown()
     REPORTS.mkdir(parents=True, exist_ok=True)
     (REPORTS / "DANE_D1_UNIWERSUM.md").write_text(
-        report(metas, skipped, failures, mw_before, mw_after, offset, maxbars, read_at), encoding="utf-8")
+        report(metas, skipped, failures, mw_before, mw_after, offset, maxbars, read_at, label, algo_trading),
+        encoding="utf-8")
     log(f"gotowe: pobrano {len(metas)}, pominięto {len(skipped)}, błędy {len(failures)}, MW {mw_before}->{mw_after}")
     if mw_before != mw_after:
         return 3
@@ -283,6 +341,23 @@ def selftest() -> int:
     txt = report([meta], [("CL-OIL", "poza Market Watch")], [], 23, 23, 2, 100000, "2026-11-20T00:00:00+00:00")
     assert "`CL-OIL`: poza Market Watch" in txt and "(bez zmian)" in txt and "nie było wywołane" in txt
     assert "ZMIANA" in report([meta], [], [], 23, 24, None, 100000, "x")
+
+    main_exe, data_exe = list(TERMINALS)
+    assert terminal_label(None) is None and terminal_label(r"C:\inny\terminal64.exe") is None
+    assert check_terminal(data_exe.upper(), [main_exe, data_exe]).startswith("terminal danych")
+    for path, running in ((None, [main_exe]), (r"C:\inny\terminal64.exe", [r"C:\inny\terminal64.exe"]),
+                          (data_exe, [main_exe]), (data_exe, [data_exe, data_exe])):
+        try:
+            check_terminal(path, running)
+            raise AssertionError(f"check_terminal przepuścił {path} przy {running}")
+        except RuntimeError:
+            pass
+    m2 = build_meta("SPY", si, None, rows, [], csv_bytes(rows), 1, "x", "terminal danych (test)")
+    assert m2["terminal"] == "terminal danych (test)"
+    assert "- Źródło: terminal danych (test)." in report([m2], [], [], 1, 1, 2, 100000, "x", m2["terminal"])
+    assert "w chwili odczytu: włączony." in report([m2], [], [], 1, 1, 2, 100000, "x", "t", True)
+    assert "w chwili odczytu: wyłączony." in report([m2], [], [], 1, 1, 2, 100000, "x", "t", False)
+    assert "w chwili odczytu: nieznany." in report([m2], [], [], 1, 1, 2, 100000, "x", "t")
     print("selftest OK")
     return 0
 
