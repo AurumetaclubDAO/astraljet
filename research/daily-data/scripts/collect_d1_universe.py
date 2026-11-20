@@ -89,6 +89,22 @@ def running_terminal_paths() -> list[str]:
     return [line.strip() for line in out.stdout.splitlines() if line.strip()]
 
 
+EXIT_ALGO_TRADING = 4  # handel automatyczny w terminalu nie jest na pewno wyłączony
+
+
+def algo_trading_refusal(terminal_info) -> str | None:
+    """None tylko gdy terminal_info().trade_allowed jest dokładnie False (przycisk Algo Trading wyłączony).
+
+    Warunek Karola z 20.11.2026: odczyt wyłącznie przy wyłączonym Algo Trading. True albo brak danych = odmowa.
+    """
+    value = getattr(terminal_info, "trade_allowed", None)
+    if value is False:
+        return None
+    if value is True:
+        return "handel automatyczny (Algo Trading) jest włączony w terminalu"
+    return f"stan Algo Trading nieznany (trade_allowed={value!r})"
+
+
 def check_terminal(path: str | None, running: list[str]) -> str:
     """Zwraca etykietę terminala albo rzuca RuntimeError. Terminal musi już działać (dokładnie jeden proces)."""
     label = terminal_label(path)
@@ -248,12 +264,19 @@ def run(symbols=UNIVERSE) -> int:
     if not mt5.initialize(path=term):
         log(f"initialize() nie powiodło się: {mt5.last_error()}")
         return 2
-    read_at = dt.datetime.now(UTC).isoformat(timespec="seconds")
-    metas, skipped, failures = [], [], []
-    algo_trading = None
     try:
         ti = mt5.terminal_info()
-        algo_trading = getattr(ti, "trade_allowed", None)
+        refusal = algo_trading_refusal(ti)
+    except Exception as exc:
+        ti, refusal = None, f"nie udało się odczytać terminal_info ({exc!r})"
+    if refusal:
+        log(f"odmowa odczytu: {refusal}")
+        mt5.shutdown()
+        return EXIT_ALGO_TRADING
+    algo_trading = False
+    read_at = dt.datetime.now(UTC).isoformat(timespec="seconds")
+    metas, skipped, failures = [], [], []
+    try:
         maxbars = int(getattr(ti, "maxbars", 0) or 100000)
         mw_before = sum(1 for s in (mt5.symbols_get() or []) if s.visible)
         log(f"terminal build={mt5.version()} connected={getattr(ti, 'connected', None)} maxbars={maxbars} MW={mw_before}")
@@ -358,6 +381,50 @@ def selftest() -> int:
     assert "w chwili odczytu: włączony." in report([m2], [], [], 1, 1, 2, 100000, "x", "t", True)
     assert "w chwili odczytu: wyłączony." in report([m2], [], [], 1, 1, 2, 100000, "x", "t", False)
     assert "w chwili odczytu: nieznany." in report([m2], [], [], 1, 1, 2, 100000, "x", "t")
+
+    assert algo_trading_refusal(NS(trade_allowed=False)) is None
+    for ti in (NS(trade_allowed=True), NS(), None, NS(trade_allowed=0), NS(trade_allowed=None)):
+        assert algo_trading_refusal(ti), f"algo_trading_refusal przepuścił {ti!r}"
+
+    class FakeTerminal:  # run(): odmowa przy włączonym Algo, shutdown i żadnego pobierania
+        TIMEFRAME_D1 = 16408
+
+        def __init__(self, allowed):
+            self.allowed, self.calls = allowed, []
+
+        def __getattr__(self, name):
+            calls = self.__dict__["calls"]
+            allowed = self.__dict__["allowed"]
+
+            def f(*a, **k):
+                calls.append(name)
+                return NS(trade_allowed=allowed, maxbars=1000) if name == "terminal_info" else True
+            return f
+
+    import types
+    _log = globals()["log"]
+    for allowed in (True, None):
+        fake = FakeTerminal(allowed)
+        saved = (sys.modules.get("MetaTrader5"), os.environ.get("MT5_TERMINAL"), globals()["running_terminal_paths"])
+        sys.modules["MetaTrader5"] = types.SimpleNamespace(**{n: getattr(fake, n) for n in ALLOWED},
+                                                           TIMEFRAME_D1=16408)
+        os.environ["MT5_TERMINAL"] = data_exe
+        globals()["running_terminal_paths"] = lambda: [data_exe]
+        globals()["log"] = lambda msg: None
+        try:
+            assert run() == EXIT_ALGO_TRADING
+        finally:
+            if saved[0] is None:
+                sys.modules.pop("MetaTrader5", None)
+            else:
+                sys.modules["MetaTrader5"] = saved[0]
+            if saved[1] is None:
+                os.environ.pop("MT5_TERMINAL", None)
+            else:
+                os.environ["MT5_TERMINAL"] = saved[1]
+            globals()["running_terminal_paths"] = saved[2]
+            globals()["log"] = _log
+        assert fake.calls == ["initialize", "terminal_info", "shutdown"], fake.calls
     print("selftest OK")
     return 0
 
