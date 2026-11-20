@@ -1,15 +1,15 @@
 # Symbole brokera — parametry wielkości i kosztu
 
-- Odczyt: 2026-11-19T19:06:15+00:00 UTC, skrypt `research/daily-data/scripts/collect_symbols.py` (tylko odczyt: `symbols_get`, `symbol_info_tick` dla symboli już widocznych w Market Watch).
+- Odczyt: 2026-11-20T06:29:04+00:00 UTC, skrypt `research/daily-data/scripts/collect_symbols.py` (tylko odczyt: `symbols_get`, `symbol_info_tick` dla symboli już widocznych w Market Watch).
 - Pełna lista: `research/daily-data/data/symbols_all.json` (pomijana przez Git).
-- Symboli razem: 1418; widocznych w Market Watch przed odczytem 23, po odczycie 23; odczytanych ticków: 23.
+- Symboli razem: 1419; widocznych w Market Watch przed odczytem 23, po odczycie 23; odczytanych ticków: 23.
 - Kursy walut do przeliczenia na USD (z tej samej listy): AED, AUD, BCH, BRL, BTC, CAD, CHF, CLP, CNH, COP, CZK, DKK, ETH, EUR, GBP, GBX, HKD, HUF, IDR, ILS, INR, JPY, KRW, LTC, MXN, NOK, NZD, PLN, SEK, SGD, SOL, THB, TRY, TWD, USC, USD, XAU, XRP, ZAR.
 
 ## Symbole według kategorii
 
 | Kategoria | Symboli |
 |---|---:|
-| Stocks | 968 |
+| Stocks | 969 |
 | 247 Product | 165 |
 | ETF | 73 |
 | Forex+ | 64 |
@@ -31,26 +31,26 @@ Spełnia warunek: 11 symboli.
 
 | Symbol | Opis | Kategoria | Najmniejszy lot [USD] | Lot min / krok | Swap long / short (tryb) | Tryb handlu | MW |
 |---|---|---|---:|---|---|---|---|
-| `INTEL` | INTEL CORP | Stocks | 5.60 | 0.1 / 0.1 | -6 / 2 (INTEREST_CURRENT) | FULL | tak |
-| `SOLUSD` | Solana | Crypto Currency | 7.38 | 0.01 / 0.01 | -25 / 0 (INTEREST_CURRENT) | FULL | tak |
+| `INTEL` | INTEL CORP | Stocks | 5.57 | 0.1 / 0.1 | -6 / 2 (INTEREST_CURRENT) | FULL | tak |
+| `SOLUSD` | Solana | Crypto Currency | 7.26 | 0.01 / 0.01 | -25 / 0 (INTEREST_CURRENT) | FULL | tak |
 | `USDUSC` | USC | Forex Major | 10.00 | 0.01 / 0.01 | 0 / 0 (POINTS) | DISABLED | nie |
 | `GBXUSD` | Great Britain Pence vs US Dollar | Forex Major | 13.15 | 0.01 / 0.01 | 0 / 0 (POINTS) | DISABLED | nie |
-| `SPCX` | Space Exploration Technologies Corp. | Stocks | 13.75 | 0.1 / 0.1 | -12 / -3 (INTEREST_CURRENT) | FULL | tak |
-| `NVIDIA` | NVIDIA CORP | Stocks | 14.82 | 0.1 / 0.1 | -6 / 2 (INTEREST_CURRENT) | FULL | tak |
-| `ETHUSD` | Ethereum | Crypto Currency | 17.74 | 0.01 / 0.01 | -25 / 0 (INTEREST_CURRENT) | FULL | tak |
-| `BCHUSD` | Bitcoin Cash | Crypto Currency | 20.74 | 0.01 / 0.01 | -25 / 0 (INTEREST_CURRENT) | FULL | nie |
-| `LTCUSD` | Litecoin | Crypto Currency | 42.94 | 0.01 / 0.01 | -25 / 0 (INTEREST_CURRENT) | FULL | nie |
-| `MU` | Micron | Stocks | 69.76 | 0.1 / 0.1 | -6 / 2 (INTEREST_CURRENT) | FULL | tak |
-| `XRPUSD` | Ripple | Crypto Currency | 97.06 | 0.01 / 0.01 | -25 / 0 (INTEREST_CURRENT) | FULL | tak |
+| `SPCX` | Space Exploration Technologies Corp. | Stocks | 13.85 | 0.1 / 0.1 | -12 / -3 (INTEREST_CURRENT) | FULL | tak |
+| `NVIDIA` | NVIDIA CORP | Stocks | 14.61 | 0.1 / 0.1 | -6 / 2 (INTEREST_CURRENT) | FULL | tak |
+| `ETHUSD` | Ethereum | Crypto Currency | 17.41 | 0.01 / 0.01 | -25 / 0 (INTEREST_CURRENT) | FULL | tak |
+| `BCHUSD` | Bitcoin Cash | Crypto Currency | 20.46 | 0.01 / 0.01 | -25 / 0 (INTEREST_CURRENT) | FULL | nie |
+| `LTCUSD` | Litecoin | Crypto Currency | 41.64 | 0.01 / 0.01 | -25 / 0 (INTEREST_CURRENT) | FULL | nie |
+| `MU` | Micron | Stocks | 68.99 | 0.1 / 0.1 | -6 / 2 (INTEREST_CURRENT) | FULL | tak |
+| `XRPUSD` | Ripple | Crypto Currency | 96.52 | 0.01 / 0.01 | -25 / 0 (INTEREST_CURRENT) | FULL | tak |
 
 ## Czego nie udało się policzyć
 
-Wartości najmniejszego lota nie da się policzyć dla 1350 symboli.
-- brak ceny: 1350
+Wartości najmniejszego lota nie da się policzyć dla 1351 symboli.
+- brak ceny: 1351
 
 Symbole bez ceny według kategorii (z ceną / razem):
 
-- Stocks: 4 / 968
+- Stocks: 4 / 969
 - 247 Product: 1 / 165
 - ETF: 0 / 73
 - Crypto Currency: 6 / 63
