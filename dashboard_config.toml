@@ -1,5 +1,5 @@
 refresh_seconds = 45
-desktop = 'C:\Users\karol\Desktop'
+# desktop: domyślnie pulpit bieżącego użytkownika (Path.home() / 'Desktop'); nadpisz tu tylko w razie potrzeby.
 # Na SOLYG-OMEN nie ma terminala DEMO: obie instalacje poniżej są zalogowane na LIVE
 # (decyzja Karola 20.11.2026). Pusta ścieżka i mt5_enabled = false: panel nie łączy się z MT5.
 terminal_path = ''

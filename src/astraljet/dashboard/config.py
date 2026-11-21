@@ -27,7 +27,8 @@ MAGIC = {magic: b[0] for b in BOTS for magic in b[4]}
 
 @dataclass(frozen=True)
 class Config:
-    desktop: Path = Path(r'C:\Users\karol\Desktop')
+    # Pulpit bieżącego użytkownika; repozytorium jest publiczne, więc bez ścieżki z nazwą użytkownika.
+    desktop: Path = field(default_factory=lambda: Path.home() / 'Desktop')
     terminal_path: str = r'C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe'
     server: str = 'VantageMarkets-Demo'
     refresh_seconds: int = 45

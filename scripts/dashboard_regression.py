@@ -6,7 +6,7 @@ import subprocess
 import sys
 
 ROOT=Path(__file__).resolve().parents[1]
-SOURCE=Path(r'C:\Users\karol\Desktop\TQ-Common')
+SOURCE=Path.home()/'Desktop'/'TQ-Common'
 DEST=ROOT/'.runtime/dashboard/tq-test'
 
 if __name__=='__main__':
