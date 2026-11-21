@@ -14,7 +14,9 @@ RESEARCH = Path(__file__).resolve().parents[1]
 H1_FILE = RESEARCH / 'btc-eth-weekly' / 'reports' / 'wynik_h1.json'
 H23_FILE = RESEARCH / 'daily-trend' / 'reports' / 'wynik_h2_h3.json'
 DIAG_FILE = RESEARCH / 'daily-trend' / 'reports' / 'diag_finansowanie.json'
+S2_FILE = RESEARCH / 'daily-trend' / 'reports' / 'wynik_seria2_2500.json'
 OUT_FILE = RESEARCH / 'REJESTR_PROB.md'
+S2_TITLES = {'H4': 'trend w obie strony, koszyk CFD w lotach', 'H5': 'trend tylko długi, koszyk CFD w lotach'}
 # Hipotezy z regułami zapisanymi w SPEC_H2_H3.md; liczba wariantów na każdą wynika z tego pliku.
 PLANNED = {'H2': 'podążanie za trendem na koszyku rynków', 'H3': 'rotacja momentum między rynkami'}
 PLANNED_TRIALS = 12
@@ -68,6 +70,16 @@ def build() -> str:
             summary.append([r['code'], r['title'], r['verdict'], f"{passed} z {len(r['checks'])}" if r['checks'] else 'brak',
                             str(len(r['variants']) + len(r['neighbours'])), h23['generated_at'][:10], 'w pliku wyniku'])
             rows += rows_h23(r)
+    if S2_FILE.exists():
+        s2 = json.loads(S2_FILE.read_text(encoding='utf-8'))
+        hashes = s2.get('data_sha256') or {}
+        for r in s2['results']:
+            passed = sum(1 for c in r['checks'] if c['passed'])
+            summary.append([r['hypothesis'], S2_TITLES.get(r['hypothesis'], r['hypothesis']), r['verdict'],
+                            f"{passed} z {len(r['checks'])}" if r['checks'] else 'brak',
+                            str(len(r['variants']) + len(r['neighbours'])), s2['generated_at'][:10],
+                            f'{len(hashes)} plików, w pliku wyniku' if hashes else 'w pliku wyniku'])
+            rows += rows_h23({**r, 'code': r['hypothesis']})
     for code, title in PLANNED.items():
         if code not in done:
             summary.append([code, title, 'NIEURUCHOMIONE', 'brak', f'0 z {PLANNED_TRIALS} zapisanych', 'brak', 'brak'])

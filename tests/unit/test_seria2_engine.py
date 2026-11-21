@@ -4,6 +4,7 @@ Reguły: research/daily-trend/SPEC_SERIA2.md. Testy nie czytają danych rynkowyc
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import random
 import sys
@@ -379,8 +380,10 @@ class RunOnFiles(unittest.TestCase):
         self.assertEqual(sorted(payload['basket']), sorted(SYNTHETIC))
         text = (self.out / 'WYNIK_SERIA2_2500.md').read_text(encoding='utf-8')
         for fragment in ('# Seria 2 (H4, H5): wynik na danych dziennych, kapitał 2 500 USD', '## H4: werdykt',
-                         '## H5: werdykt', 'prowizja', 'widoku rachunku'):
+                         '## H5: werdykt', 'prowizja', 'widoku rachunku', 'Widok modelu'):
             self.assertIn(fragment, text)
+        expected = {s: hashlib.sha256((self.data / f'{s}_D1.csv').read_bytes()).hexdigest() for s in SYNTHETIC}
+        self.assertEqual(payload['data_sha256'], expected)
 
     def test_missing_gross_exposure_is_refused_after_acceptance(self):
         write_long_symbol(self.data, 'IWM', 1.001)

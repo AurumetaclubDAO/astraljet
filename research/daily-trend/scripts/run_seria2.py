@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import statistics
 from dataclasses import asdict, dataclass, field
@@ -306,14 +307,19 @@ def choose_basket(data: dict, fx: dict, capital: float, gross: float) -> list[di
     return koszyk.select_basket(admitted)
 
 
+def data_hashes(folder: Path, symbols: list[str]) -> dict[str, str]:
+    """SHA-256 plików CSV, na których liczono test: pozwala sprawdzić, że wynik dotyczy tych samych danych."""
+    return {s: hashlib.sha256((folder / f'{s}_D1.csv').read_bytes()).hexdigest() for s in symbols}
+
+
 def write_report(results: list[dict], markets: dict[str, Market], basket: list[dict], out_dir: Path, *,
-                 capital: float, gross: float) -> None:
+                 capital: float, gross: float, hashes: dict[str, str] | None = None) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).isoformat(timespec='seconds')
     name = f'{capital:.0f}'
     payload = {'generated_at': stamp, 'status': 'OFFLINE_UNQUALIFIED: obliczenie modelu, nie rekord RUN',
                'spec': 'research/daily-trend/SPEC_SERIA2.md', 'capital': capital, 'gross': gross,
-               'basket': [b['symbol'] for b in basket],
+               'basket': [b['symbol'] for b in basket], 'data_sha256': hashes or {},
                'costs': {n: asdict(m.costs) for n, m in markets.items()}, 'results': results}
     (out_dir / f'wynik_seria2_{name}.json').write_text(json.dumps(payload, ensure_ascii=False, indent=1),
                                                        encoding='utf-8')
@@ -321,7 +327,9 @@ def write_report(results: list[dict], markets: dict[str, Market], basket: list[d
     lines = [f'# Seria 2 (H4, H5): wynik na danych dziennych, kapitał {amount} USD', '',
              f'Wygenerowano: {stamp}. To obliczenie modelu, nie rekord RUN i nie zgoda na handel.',
              'Reguły i kryteria: `research/daily-trend/SPEC_SERIA2.md`. Kryteria liczone na widoku rachunku w lotach, '
-             f'poza strojeniem (od {OOS_START}). Łączna ekspozycja G = {gross:g}.', '',
+             f'poza strojeniem (od {OOS_START}). Łączna ekspozycja G = {gross:g}.',
+             'Widok modelu (wagi ciągłe, bez lotów) nie jest w tym raporcie policzony. Specyfikacja przewiduje go '
+             'tylko do porównania, więc nie zmienia werdyktu.', '',
              '| Klasa | Rynek | Symbol | Spread | Prowizja za stronę | Długa rocznie | Krótka rocznie (z dopłatą) |',
              '|---|---|---|---:|---:|---:|---:|']
     for b in basket:
@@ -388,7 +396,8 @@ def main(argv: list[str] | None = None) -> int:
     else:
         results = [{'hypothesis': code, 'capital': args.kapital, 'gross': args.ekspozycja, 'verdict': 'BRAK DANYCH',
                     'checks': [], 'variants': [], 'neighbours': [], 'benchmark': None} for code in ('H4', 'H5')]
-    write_report(results, markets, basket, args.wyniki, capital=args.kapital, gross=args.ekspozycja)
+    write_report(results, markets, basket, args.wyniki, capital=args.kapital, gross=args.ekspozycja,
+                 hashes=data_hashes(args.dane, [b['symbol'] for b in basket]))
     for r in results:
         print(f"{r['hypothesis']}: {r['verdict']}")
         for c in r['checks']:
