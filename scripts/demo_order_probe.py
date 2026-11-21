@@ -97,6 +97,9 @@ class Report:
     lines: list[str] = field(default_factory=list)
     open_ticket: int | None = None
     sent: int = 0
+    closed: bool = False  # pozycja próby potwierdzona jako zamknięta (krok 6)
+    warning: str | None = None  # ostrzeżenie po przerwanym przebiegu z wysłanym zleceniem
+    partial: bool = False  # wynik order_send 10010 (wykonanie częściowe)
 
     def step(self, name: str, result: str) -> None:
         stamp = datetime.now(timezone.utc).strftime("%H:%M:%S.%f")[:-3]
@@ -193,15 +196,47 @@ def build_mandate(env_id: str, now: datetime, limits: dict, code_hash: str):
 def run_probe(sdk, rule: DemoAccountRule, state_dir: Path, *, send: bool = False,
               now_fn=lambda: datetime.now(timezone.utc), report: Report | None = None,
               live_marker: Path | None = None) -> Report:
+    """Przebieg próby. Licznik wysłanych zleceń i ostrzeżenie o możliwej pozycji trafiają do raportu
+    także wtedy, gdy przebieg przerwie wyjątek (np. odmowa bramki po order_send)."""
     report = report or Report()
     counting = CountingSDK(sdk)
     db = Database.from_state_dir(state_dir)
     db.initialize()
     guard = ExecutorGuard(db)
     adapter = MT5DemoAdapter(db, guard, counting, rule, symbols=(SYMBOL,))
-    code_hash = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     start = now_fn()
     run_id = start.strftime("%Y%m%d%H%M%S%f")
+    keys = {"open": f"open-{run_id}", "close": f"close-{run_id}"}
+    failed = True
+    try:
+        _steps(report, counting, guard, adapter, keys, run_id, start, send, now_fn, live_marker)
+        failed = False
+        return report
+    finally:
+        _settle(report, counting, adapter, keys, failed)
+
+
+def _settle(report: Report, counting: CountingSDK, adapter: MT5DemoAdapter, keys: dict, failed: bool) -> None:
+    report.sent = counting.sends
+    responses = {}
+    for name, key in keys.items():
+        try:
+            responses[name] = adapter.response(key)
+        except Exception:  # noqa: BLE001 - raport musi powstać mimo błędu bazy
+            responses[name] = {}
+    report.partial = any(r.get("retcode") == 10010 for r in responses.values())
+    if not report.closed and report.open_ticket is None and responses["open"].get("order"):
+        report.open_ticket = int(responses["open"]["order"])
+    if failed and counting.sends > 0 and not report.closed:
+        order = report.open_ticket or "brak w bazie próby"
+        report.warning = (f"Przebieg przerwany po wysłaniu {counting.sends} zlecenia(ń). Numer zlecenia kupna: {order}. "
+                          f"Na koncie DEMO może być otwarta pozycja z magic {PROBE_MAGIC}: sprawdź i zamknij ją ręcznie; "
+                          "skrypt nie próbuje ponownie."
+                          + (" Wynik 10010: zlecenie mogło zostać wykonane częściowo." if report.partial else ""))
+
+
+def _steps(report, counting, guard, adapter, keys, run_id, start, send, now_fn, live_marker) -> None:
+    code_hash = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 
     def expect(name: str, ok: bool, result: str) -> None:
         report.sent = counting.sends
@@ -223,7 +258,7 @@ def run_probe(sdk, rule: DemoAccountRule, state_dir: Path, *, send: bool = False
         return [p for p in (ro.positions_get() or ()) if int(p.magic) == PROBE_MAGIC]
 
     # 0. czysty stan
-    with db.connect() as connection:
+    with adapter.database.connect() as connection:
         kill = connection.execute("SELECT active FROM kill_switches WHERE environment_id = ?", (ENV,)).fetchone()
         unfinished = connection.execute("SELECT COUNT(*) AS n FROM execution_intents WHERE environment_id = ? "
                                         "AND state = 'uncertain'", (ENV,)).fetchone()["n"]
@@ -291,10 +326,10 @@ def run_probe(sdk, rule: DemoAccountRule, state_dir: Path, *, send: bool = False
 
     if not send:
         report.step("KONIEC (bez brokera)", f"wysłane zlecenia: {counting.sends}; do wysyłki potrzebna flaga {SEND_FLAG}")
-        return report
+        return
 
     # 2. kupno
-    open_id, open_key = f"OPEN-{run_id}", f"open-{run_id}"
+    open_id, open_key = f"OPEN-{run_id}", keys["open"]
     t0 = time.perf_counter()
     receipt = adapter.submit_intent(ctx(), intent(open_id), idempotency_key=open_key, now=now_fn())
     ms = (time.perf_counter() - t0) * 1000
@@ -303,7 +338,7 @@ def run_probe(sdk, rule: DemoAccountRule, state_dir: Path, *, send: bool = False
         report.open_ticket = int(resp["order"])
     expect("2. kupno (1. zlecenie)", receipt.state is ExecutionResultState.ACCEPTED and counting.sends == 1,
            f"{receipt.state.value}; cena żądana {resp.get('requested_price')}, wykonania {resp.get('fill_price')}, "
-           f"różnica {_diff(resp)}; {ms:.0f} ms")
+           f"różnica {_diff(resp)}; {ms:.0f} ms{_partial(resp)}")
 
     # 3. ta sama intencja drugi raz
     b = blocker(lambda: adapter.submit_intent(ctx(), intent(open_id, signal=f"SIGNAL-NEW-{run_id}"),
@@ -325,7 +360,7 @@ def run_probe(sdk, rule: DemoAccountRule, state_dir: Path, *, send: bool = False
            f"wolumen {held[0].volume if held else '-'}; pozycje z magic próby: {len(all_own)}")
 
     # 5. zamknięcie z position=<ticket> (rachunek hedge)
-    close_key = f"close-{run_id}"
+    close_key = keys["close"]
     t0 = time.perf_counter()
     receipt = adapter.submit_intent(ctx(), intent(f"CLOSE-{run_id}", side="sell"), idempotency_key=close_key,
                                     now=now_fn(), position_ticket=ticket)
@@ -333,14 +368,14 @@ def run_probe(sdk, rule: DemoAccountRule, state_dir: Path, *, send: bool = False
     resp = adapter.response(close_key)
     expect("5. zamknięcie (2. zlecenie)", receipt.state is ExecutionResultState.ACCEPTED and counting.sends == 2,
            f"{receipt.state.value}; cena żądana {resp.get('requested_price')}, wykonania {resp.get('fill_price')}, "
-           f"różnica {_diff(resp)}; {ms:.0f} ms")
+           f"różnica {_diff(resp)}; {ms:.0f} ms{_partial(resp)}")
 
     # 6. uzgodnienie
     adapter.ensure_demo(ctx(), "krok 6: uzgodnienie")
     same = ro.positions_get(ticket=ticket) or ()
     left = own_positions("krok 6: pozycje z magic próby")
     if not same and not left:
-        report.open_ticket = None
+        report.open_ticket, report.closed = None, True
     expect("6. uzgodnienie z terminalem", not same and not left,
            f"pozycja o tickecie {ticket}: {len(same)}; pozycje z magic próby: {len(left)}")
 
@@ -357,7 +392,10 @@ def run_probe(sdk, rule: DemoAccountRule, state_dir: Path, *, send: bool = False
     expect("7. uzgodnienie przerwanej intencji", rec.state is ExecutionResultState.REJECTED and counting.sends == 2,
            f"{rec.state.value}: {rec.message}")
     report.step("KONIEC", f"wysłane zlecenia: {counting.sends} (oczekiwano 2)")
-    return report
+
+
+def _partial(resp: dict) -> str:
+    return "; retcode 10010: zlecenie mogło zostać wykonane częściowo" if resp.get("retcode") == 10010 else ""
 
 
 def _diff(resp: dict) -> str:
@@ -374,9 +412,13 @@ def write_report(report: Report, path: Path, error: str | None, send: bool) -> N
             "- Rachunek: DEMO (numer i serwer sprawdzone z lokalnym plikiem; nie są tu zapisane).",
             f"- Wysłane zlecenia: {report.sent}.",
             f"- Wynik: {'ZATRZYMANO - ' + error if error else 'wszystkie kroki zgodnie z oczekiwaniem'}."]
-    if report.open_ticket:
+    if report.warning:
+        head.append(f"- **UWAGA: {report.warning}**")
+    elif report.open_ticket and not report.closed:
         head.append(f"- **UWAGA: na koncie DEMO została otwarta pozycja próby (ticket {report.open_ticket}, "
                     f"magic {PROBE_MAGIC}). Skrypt nie próbuje ponownie: zamknij ją ręcznie w terminalu.**")
+    if report.partial and not report.warning:
+        head.append("- Uwaga: wynik order_send 10010 - zlecenie mogło zostać wykonane częściowo.")
     body = ["", "| Czas UTC | Krok | Wynik |", "|---|---|---|", *report.lines]
     path.write_text("\n".join(head + body) + "\n", encoding="utf-8")
 

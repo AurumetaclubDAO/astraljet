@@ -180,3 +180,65 @@ class ProbeMarkerAndOutput(unittest.TestCase):
         code = text.split('"""', 2)[2]  # bez nagłówka
         for ch in set(code):
             ch.encode("cp852")
+
+
+class FailureAfterSendIsReported(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.dir = Path(self.tmp.name)
+
+    def run_failing(self, mt5):
+        report = probe.Report()
+        with self.assertRaises(Exception):
+            probe.run_probe(mt5, RULE, self.dir / "state", send=True, report=report)
+        out = self.dir / "r.md"
+        probe.write_report(report, out, "test", True)
+        return report, out.read_text(encoding="utf-8")
+
+    def test_algo_off_right_after_buy_send(self) -> None:
+        mt5 = FakeMT5()
+        original = mt5.order_send
+
+        def send_then_algo_off(request):
+            result = original(request)
+            mt5.terminal = NS(connected=True, trade_allowed=False)
+            return result
+        mt5.order_send = send_then_algo_off
+        report, body = self.run_failing(mt5)
+        self.assertEqual(1, len(mt5.sends))
+        self.assertEqual(1, len(mt5.positions))
+        self.assertEqual(1, report.sent)
+        self.assertIn("Wysłane zlecenia: 1.", body)
+        ticket = next(iter(mt5.positions))
+        self.assertEqual(ticket, report.open_ticket)
+        self.assertIn(f"Numer zlecenia kupna: {ticket}", body)
+        self.assertIn("może być otwarta pozycja", body)
+
+    def test_no_result_for_buy(self) -> None:
+        mt5 = FakeMT5()
+        mt5.send_returns_none = True
+        report, body = self.run_failing(mt5)
+        self.assertEqual(1, report.sent)
+        self.assertIn("Wysłane zlecenia: 1.", body)
+        self.assertIn("brak w bazie próby", body)
+        self.assertIn("może być otwarta pozycja", body)
+
+    def test_partial_fill_is_named(self) -> None:
+        mt5 = FakeMT5()
+        original = mt5.order_send
+
+        def partial(request):
+            result = original(request)
+            return NS(retcode=10010, order=result.order, deal=result.deal, price=result.price, volume=result.volume)
+        mt5.order_send = partial
+        report, body = self.run_failing(mt5)
+        self.assertTrue(report.partial)
+        self.assertIn("wykonane częściowo", body)
+
+    def test_successful_run_has_no_warning(self) -> None:
+        mt5 = FakeMT5()
+        report = probe.run_probe(mt5, RULE, self.dir / "state", send=True)
+        self.assertIsNone(report.warning)
+        self.assertEqual(2, report.sent)
+        self.assertTrue(report.closed)
