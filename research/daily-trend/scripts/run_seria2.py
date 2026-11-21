@@ -10,8 +10,8 @@ import argparse
 import csv
 import json
 import statistics
-from dataclasses import dataclass, field
-from datetime import date
+from dataclasses import asdict, dataclass, field
+from datetime import date, datetime, timezone
 from decimal import Decimal
 import sys
 from pathlib import Path
@@ -27,6 +27,7 @@ import uniwersum_dane as ud
 from run_h2_h3 import MAX_DD, MIN_POSITIVE, MIN_SHARPE, OOS_START, segment  # statystyki i progi jak w serii 1
 
 SPEC_FILE = Path(__file__).resolve().parents[1] / 'SPEC_SERIA2.md'
+SPREAD_REPORT = Path(__file__).resolve().parents[2] / 'daily-data' / 'reports' / 'SPREAD_TICKI_SERIA2.md'
 ETF_COMMISSION_SIDE = 6.0   # USD za stronę transakcji na CFD na ETF-ie (SPEC_SERIA2.md, punkt 5)
 UNKNOWN_FINANCING = 0.07    # gdy stawki swapu nie da się policzyć
 EQUITY_PAYOUT = (0.03, 0.05)  # dopłata pozycji krótkiej rocznie: bazowa i stresowa
@@ -298,17 +299,101 @@ def acceptance_block(spec_text: str) -> str | None:
     return None
 
 
+def choose_basket(data: dict, fx: dict, capital: float, gross: float) -> list[dict]:
+    """Koszyk według punktów 2 i 3 specyfikacji, tą samą funkcją co raport doboru koszyka."""
+    known = {s: koszyk.facts(s, data[s], fx) for s in koszyk.ALL_SYMBOLS if s in data}
+    admitted = {s: f for s, f in known.items() if not koszyk.refusals(f, capital, gross)}
+    return koszyk.select_basket(admitted)
+
+
+def write_report(results: list[dict], markets: dict[str, Market], basket: list[dict], out_dir: Path, *,
+                 capital: float, gross: float) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).isoformat(timespec='seconds')
+    name = f'{capital:.0f}'
+    payload = {'generated_at': stamp, 'status': 'OFFLINE_UNQUALIFIED: obliczenie modelu, nie rekord RUN',
+               'spec': 'research/daily-trend/SPEC_SERIA2.md', 'capital': capital, 'gross': gross,
+               'basket': [b['symbol'] for b in basket],
+               'costs': {n: asdict(m.costs) for n, m in markets.items()}, 'results': results}
+    (out_dir / f'wynik_seria2_{name}.json').write_text(json.dumps(payload, ensure_ascii=False, indent=1),
+                                                       encoding='utf-8')
+    amount = f'{capital:,.0f}'.replace(',', ' ')
+    lines = [f'# Seria 2 (H4, H5): wynik na danych dziennych, kapitał {amount} USD', '',
+             f'Wygenerowano: {stamp}. To obliczenie modelu, nie rekord RUN i nie zgoda na handel.',
+             'Reguły i kryteria: `research/daily-trend/SPEC_SERIA2.md`. Kryteria liczone na widoku rachunku w lotach, '
+             f'poza strojeniem (od {OOS_START}). Łączna ekspozycja G = {gross:g}.', '',
+             '| Klasa | Rynek | Symbol | Spread | Prowizja za stronę | Długa rocznie | Krótka rocznie (z dopłatą) |',
+             '|---|---|---|---:|---:|---:|---:|']
+    for b in basket:
+        costs = markets[b['symbol']].costs if b['symbol'] in markets else None
+        if costs:
+            lines.append(f"| {b['class']} | {b['market']} | `{b['symbol']}` | {costs.spread:.3%} | "
+                         f"{costs.commission_side:.2f} USD | {costs.fin_long:.1%} | "
+                         f"{costs.fin_short + costs.payout_short:.1%} |")
+    if not koszyk.basket_valid(basket):
+        lines += ['', f'Koszyk nieważny: {len(basket)} rynków. Wymagane co najmniej {koszyk.MIN_MARKETS} rynków '
+                      f'z {koszyk.MIN_CLASSES} klas.']
+    for r in results:
+        lines += ['', f"## {r['hypothesis']}: werdykt {r['verdict']}", '']
+        if r['checks']:
+            lines += ['| Kryterium | Wynik | Zaliczone |', '|---|---|---|']
+            lines += [f"| {c['criterion']} | {c['value']} | {'tak' if c['passed'] else 'NIE'} |" for c in r['checks']]
+        rows = r['variants'] + ([r['benchmark']] if r['benchmark'] else []) + r['neighbours']
+        if rows:
+            lines += ['', '| Wariant | Wynik poza strojeniem | Obsunięcie | Sharpe | Transakcje | Koszt spreadu | '
+                          'prowizja | finansowanie | Pominięte przez lot | Wynik w okresie strojenia |',
+                      '|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|']
+        for v in rows:
+            o, i = v['out_of_sample'], v['in_sample']
+            sharpe = 'brak' if not o or o['sharpe'] is None else f"{o['sharpe']:.2f}"
+            lines.append(
+                f"| {v['label']} | {'brak' if not o else format(o['net_return'], '+.1%')} | "
+                f"{'brak' if not o else format(o['max_drawdown'], '.1%')} | {sharpe} | {v['trades']} | "
+                f"{v['costs']['spread']:.2f} USD | {v['costs']['commission']:.2f} USD | "
+                f"{v['costs']['financing']:.2f} USD | {v['skipped']} | "
+                f"{'brak' if not i else format(i['net_return'], '+.1%')} |")
+    (out_dir / f'WYNIK_SERIA2_{name}.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description='Seria 2 (H4, H5) na danych dziennych koszyka.')
     parser.add_argument('--spec', type=Path, default=SPEC_FILE)
     parser.add_argument('--dane', type=Path, default=ud.DATA_DIR)
+    parser.add_argument('--kursy', type=Path, default=ud.SYMBOLS, help='Plik z kursami walut do USD (fx_to_usd).')
+    parser.add_argument('--spready', type=Path, default=SPREAD_REPORT, help='Raport pomiaru spreadu na tickach.')
+    parser.add_argument('--wyniki', type=Path, default=ud.OUT_DIR)
+    parser.add_argument('--kapital', type=float, default=2500.0)
+    parser.add_argument('--ekspozycja', type=float, default=None,
+                        help='G: największa łączna ekspozycja jako krotność kapitału. Decyzja Karola, bez wartości domyślnej.')
     args = parser.parse_args(argv)
     blocked = acceptance_block(args.spec.read_text(encoding='utf-8'))
     if blocked:
         print(blocked)
         return 2
-    print('Reguły zaakceptowane, ale raport z danych rynkowych nie jest jeszcze napisany.')
-    return 3
+    if args.ekspozycja is None or args.ekspozycja <= 0 or args.kapital <= 0:
+        print('Podaj --ekspozycja (wartość G wybraną przez Karola) i dodatni --kapital.')
+        return 2
+    data = ud.load(args.dane) if args.dane.is_dir() else {}
+    if not data or not args.kursy.exists():
+        print(f'BRAK DANYCH: nie ma plików D1 w {args.dane} albo pliku kursów {args.kursy.name}.')
+        return 2
+    fx = json.loads(args.kursy.read_text(encoding='utf-8'))['fx_to_usd']
+    spreads = load_spreads(args.spready) if args.spready.exists() else {}
+    basket = choose_basket(data, fx, args.kapital, args.ekspozycja)
+    markets = {b['symbol']: market_from_files(args.dane, b['symbol'], spread=spreads.get(b['symbol']), fx=fx)
+               for b in basket}
+    if koszyk.basket_valid(basket):
+        results = [evaluate(markets, hypothesis=code, capital=args.kapital, gross=args.ekspozycja)
+                   for code in ('H4', 'H5')]
+    else:
+        results = [{'hypothesis': code, 'capital': args.kapital, 'gross': args.ekspozycja, 'verdict': 'BRAK DANYCH',
+                    'checks': [], 'variants': [], 'neighbours': [], 'benchmark': None} for code in ('H4', 'H5')]
+    write_report(results, markets, basket, args.wyniki, capital=args.kapital, gross=args.ekspozycja)
+    for r in results:
+        print(f"{r['hypothesis']}: {r['verdict']}")
+        for c in r['checks']:
+            print(f"  {'OK ' if c['passed'] else 'NIE'} {c['criterion']}: {c['value']}")
+    return 0
 
 
 def run_variant(markets: dict[str, Market], *, hypothesis: str, capital: float, gross: float, lookback: int,

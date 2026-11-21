@@ -329,5 +329,71 @@ class AcceptanceGate(unittest.TestCase):
         self.assertEqual(code, 2)
 
 
+ETF_PATH = 'ETF\\ETF-C\\'
+SYNTHETIC = {'IWM': 1.001, 'XLF': 1.0008, 'EFA': 0.9995, 'EEM': 1.0006, 'GDX': 0.9992, 'USO': 1.0007, 'DBC': 0.9996,
+             'ETHUSD': 1.0012}
+
+
+def write_long_symbol(folder: Path, symbol: str, drift: float) -> None:
+    """Pliki D1 jak z odczytu terminala, ale z cenami sztucznymi na 1500 dni od 2022-01-01."""
+    closes = noisy(drift, LONG, symbol)
+    rows = ['date,open,high,low,close,tick_volume,spread']
+    for day, close in zip(days(LONG), closes):
+        rows.append(f'{day},{close * 0.999:.4f},{close * 1.01:.4f},{close * 0.99:.4f},{close:.4f},10,0')
+    (folder / f'{symbol}_D1.csv').write_text('\n'.join(rows) + '\n', encoding='utf-8')
+    etf = symbol != 'ETHUSD'
+    meta = {'symbol': symbol, 'market': symbol, 'path': (ETF_PATH if etf else 'Crypto Currency\\Crypto Major\\') + symbol,
+            'digits': 2, 'point': 0.01, 'trade_contract_size': 1.0, 'volume_min': 0.01, 'volume_step': 0.01,
+            'volume_max': 1000.0, 'currency_profit': 'USD', 'currency_base': 'USD', 'currency_margin': 'USD',
+            'trade_mode': 'FULL', 'swap_long': -6.0 if etf else -8.33, 'swap_short': 2.0 if etf else 0.0,
+            'swap_mode': 5, 'spread_points': 2}
+    (folder / f'{symbol}_D1.meta.json').write_text(json.dumps(meta), encoding='utf-8')
+
+
+class RunOnFiles(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.data = self.root / 'dane'
+        self.data.mkdir()
+        self.out = self.root / 'wyniki'
+        self.spec = self.root / 'SPEC.md'
+        self.spec.write_text('**Status: ZAAKCEPTOWANE przez Karola (test).**', encoding='utf-8')
+        self.fx = self.root / 'symbols.json'
+        self.fx.write_text(json.dumps({'fx_to_usd': {'USD': 1.0}}), encoding='utf-8')
+        self.spreads = self.root / 'spread.md'
+        self.spreads.write_text('brak tabel\n', encoding='utf-8')
+
+    def run_main(self, *extra: str) -> int:
+        return s2.main(['--spec', str(self.spec), '--dane', str(self.data), '--kursy', str(self.fx),
+                        '--spready', str(self.spreads), '--wyniki', str(self.out), *extra])
+
+    def test_accepted_rules_run_both_hypotheses_and_write_report(self):
+        for symbol, drift in SYNTHETIC.items():
+            write_long_symbol(self.data, symbol, drift)
+        self.assertEqual(self.run_main('--ekspozycja', '1'), 0)
+        payload = json.loads((self.out / 'wynik_seria2_2500.json').read_text(encoding='utf-8'))
+        self.assertEqual([r['hypothesis'] for r in payload['results']], ['H4', 'H5'])
+        self.assertTrue(all(r['verdict'] in ('PASS', 'FAIL') for r in payload['results']))
+        self.assertEqual(sorted(payload['basket']), sorted(SYNTHETIC))
+        text = (self.out / 'WYNIK_SERIA2_2500.md').read_text(encoding='utf-8')
+        for fragment in ('# Seria 2 (H4, H5): wynik na danych dziennych, kapitał 2 500 USD', '## H4: werdykt',
+                         '## H5: werdykt', 'prowizja', 'widoku rachunku'):
+            self.assertIn(fragment, text)
+
+    def test_missing_gross_exposure_is_refused_after_acceptance(self):
+        write_long_symbol(self.data, 'IWM', 1.001)
+        self.assertEqual(self.run_main(), 2)
+        self.assertFalse(self.out.exists())
+
+    def test_too_small_basket_is_reported_as_brak_danych(self):
+        for symbol in ('IWM', 'XLF', 'ETHUSD'):
+            write_long_symbol(self.data, symbol, SYNTHETIC[symbol])
+        self.assertEqual(self.run_main('--ekspozycja', '1'), 0)
+        payload = json.loads((self.out / 'wynik_seria2_2500.json').read_text(encoding='utf-8'))
+        self.assertEqual([r['verdict'] for r in payload['results']], ['BRAK DANYCH', 'BRAK DANYCH'])
+
+
 if __name__ == '__main__':
     unittest.main()
