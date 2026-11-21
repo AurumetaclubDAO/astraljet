@@ -158,7 +158,7 @@ class RunAndReport(PaperCase):
         markets = synthetic(800)
         out = Path(self.tmp.name) / "out"
         result = paper.run(threshold=0.2, start=markets["UP1"].dates[0], today="2030-01-01", markets=markets,
-                           out_dir=out, now_fn=self.now)
+                           out_dir=out, now_fn=self.now, threshold_decision="Karol, 21.11.2026")
         self.assertTrue(result["stale"])
         for st in result["states"].values():
             self.assertEqual([], st.rows)
@@ -173,8 +173,10 @@ class RunAndReport(PaperCase):
         today = (datetime.fromisoformat(markets["UP1"].dates[-1]) .date() + paper.timedelta(days=1)).isoformat()
         with self.assertRaises(paper.ValidationError):
             paper.run(threshold=0.2, start=None, today=today, markets=markets, out_dir=out, now_fn=self.now)
+        with self.assertRaises(paper.ValidationError):  # bez zapisu decyzji o progu
+            paper.run(threshold=0.2, start="2023-06-01", today=today, markets=markets, out_dir=out, now_fn=self.now)
         result = paper.run(threshold=0.2, start="2023-06-01", today=today, markets=markets, out_dir=out,
-                           now_fn=self.now)
+                           now_fn=self.now, threshold_decision="Karol, 21.11.2026")
         self.assertEqual([], result["stale"])
         for hyp, st in result["states"].items():
             self.assertTrue((out / paper.ENVIRONMENTS[hyp] / "state.json").exists())
@@ -187,3 +189,10 @@ class RunAndReport(PaperCase):
         # drugi przebieg czyta zapisany stan (bez --start) i nic nie dokłada
         again = paper.run(threshold=0.2, start=None, today=today, markets=markets, out_dir=out, now_fn=self.now)
         self.assertEqual(result["states"]["H4"].rows, again["states"]["H4"].rows)
+
+        self.assertIn("Próg hamulca: 20% od szczytu (decyzja: Karol, 21.11.2026)", text)
+        with self.assertRaises(paper.ValidationError):  # inny próg bez nowej decyzji
+            paper.run(threshold=0.3, start=None, today=today, markets=markets, out_dir=out, now_fn=self.now)
+        changed = paper.run(threshold=0.3, start=None, today=today, markets=markets, out_dir=out, now_fn=self.now,
+                            threshold_decision="Karol, 30.11.2026")
+        self.assertEqual(0.3, changed["states"]["H5"].brake_threshold)

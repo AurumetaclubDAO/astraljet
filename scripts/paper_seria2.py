@@ -21,7 +21,9 @@ Krok dnia odtwarza pętlę run_seria2.simulate_account (test: na tych samych dan
 - Po każdym pełnym miesiącu porównanie z backtestem simulate_account na tych samych plikach.
 
 Uruchamianie ręcznie, raz dziennie po zamknięciu sesji USA (bez zadania w Harmonogramie):
-    .venv\\Scripts\\python.exe scripts\\paper_seria2.py --prog-hamulca <ułamek> [--start 2026-11-01] [--dzien RRRR-MM-DD]
+    .venv\\Scripts\\python.exe scripts\\paper_seria2.py --prog-hamulca 0.20 --prog-decyzja "Karol, 21.11.2026" --start 2026-11-01
+    kolejne dni: .venv\\Scripts\\python.exe scripts\\paper_seria2.py --prog-hamulca 0.20 [--dzien RRRR-MM-DD]
+Próg 20% ustalił Karol 21.11.2026 (dotyczy tylko paper serii 2); w skrypcie nie ma wartości domyślnej.
 Stan i raport poza Git: .runtime/paper-seria2/
 """
 from __future__ import annotations
@@ -87,6 +89,8 @@ class PaperState:
     refusals: list[dict] = field(default_factory=list)
     decisions: list[dict] = field(default_factory=list)
     brake_state: dict = field(default_factory=dict)
+    brake_threshold: float | None = None   # próg hamulca zapisany przy starcie (ustala Karol)
+    brake_decision: str | None = None      # kto i kiedy ustalił próg
 
     @classmethod
     def new(cls, hypothesis: str, capital: float, gross: float, start: str) -> "PaperState":
@@ -377,6 +381,8 @@ def write_report(path: Path, states: dict[str, PaperState], comparisons: dict[st
               f"- Kapitał: {equity:.2f} USD (start {st.capital0:.2f}); gotówka {st.cash:.2f} USD.",
               f"- Koszty: spread {st.costs['spread']:.2f}, prowizja {st.costs['commission']:.2f}, "
               f"finansowanie {st.costs['financing']:.2f} USD.",
+              f"- Próg hamulca: {st.brake_threshold:.0%} od szczytu (decyzja: {st.brake_decision})."
+              if st.brake_threshold is not None else "- Próg hamulca: nie zapisany.",
               f"- Hamulec: {'ZACIĄGNIĘTY ' + str(b['tripped_at']) if b['tripped'] else 'nie zadziałał'} "
               f"(szczyt {float(b['peak']):.2f} USD).",
               "- Pozycje (loty): " + (", ".join(f"{n} {v:g}" for n, v in st.volume.items() if v) or "brak") + "."]
@@ -409,7 +415,8 @@ def server_today() -> str:
 
 
 def run(*, threshold: float, start: str | None, today: str, data_dir: Path = DATA_DIR, out_dir: Path = OUT_DIR,
-        markets: dict[str, s2.Market] | None = None, now_fn=lambda: datetime.now(timezone.utc)) -> dict:
+        markets: dict[str, s2.Market] | None = None, now_fn=lambda: datetime.now(timezone.utc),
+        threshold_decision: str | None = None) -> dict:
     result = json.loads(RESULT_FILE.read_text(encoding="utf-8"))
     basket, capital, gross = list(result["basket"]), float(result["capital"]), float(result["gross"])
     verdicts = {r["hypothesis"]: r["verdict"] for r in result["results"]}
@@ -425,10 +432,19 @@ def run(*, threshold: float, start: str | None, today: str, data_dir: Path = DAT
         path = out_dir / ENVIRONMENTS[hyp] / "state.json"
         if path.exists():
             st = PaperState.load(path)
+            if st.brake_threshold is not None and abs(st.brake_threshold - threshold) > 1e-12:
+                if not threshold_decision:
+                    raise ValidationError(f"Próg hamulca {threshold} różni się od zapisanego {st.brake_threshold} "
+                                          f"({st.brake_decision}). Zmiana wymaga decyzji Karola podanej w --prog-decyzja.")
+                notes.append(f"{hyp}: zmiana progu hamulca {st.brake_threshold} -> {threshold} ({threshold_decision})")
+                st.brake_threshold, st.brake_decision = threshold, threshold_decision
         else:
             if start is None:
                 raise ValidationError("Pierwsze uruchomienie wymaga --start (dzień startu paper).")
+            if not threshold_decision:
+                raise ValidationError("Pierwsze uruchomienie wymaga --prog-decyzja (kto i kiedy ustalił próg hamulca).")
             st = PaperState.new(hyp, capital, gross, start)
+            st.brake_threshold, st.brake_decision = threshold, threshold_decision
         if stale:
             st.refusals.append({"day": today, "market": "*", "reason": "nieświeże dane: " + "; ".join(stale)})
         else:
@@ -455,6 +471,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--prog-hamulca", dest="threshold", type=float, required=True,
                     help="próg hamulca obsunięcia jako ułamek (ustala Karol), np. 0.2")
+    ap.add_argument("--prog-decyzja", dest="decision",
+                    help='kto i kiedy ustalił próg, np. "Karol, 21.11.2026" (wymagane przy starcie i przy zmianie progu)')
     ap.add_argument("--start", help="dzień startu paper RRRR-MM-DD (tylko przy pierwszym uruchomieniu)")
     ap.add_argument("--dzien", help="dzień serwera dla kontroli świeżości (domyślnie bieżący, UTC+2)")
     ap.add_argument("--dane", type=Path, default=DATA_DIR)
@@ -464,7 +482,8 @@ def main(argv: list[str] | None = None) -> int:
     except Exception:  # noqa: BLE001
         pass
     try:
-        out = run(threshold=a.threshold, start=a.start, today=a.dzien or server_today(), data_dir=a.dane)
+        out = run(threshold=a.threshold, start=a.start, today=a.dzien or server_today(), data_dir=a.dane,
+                  threshold_decision=a.decision)
     except ValidationError as exc:
         print(f"Odmowa: {exc}")
         return 2
