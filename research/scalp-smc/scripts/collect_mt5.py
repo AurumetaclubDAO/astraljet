@@ -2,7 +2,8 @@
 """
 Kolektor danych MT5 (READ-ONLY) dla badań scalp-smc.
 - Podpina się do JUŻ DZIAŁAJĄCEGO terminala (bez loginu/hasła).
-- Używa wyłącznie: symbols_get, symbol_info, symbol_info_tick, copy_rates_range, copy_ticks_range.
+- Używa wyłącznie wywołań z ALLOWED (twarda lista, ReadOnlyMT5); account_info tylko do trybu i serwera.
+- Zbiera wyłącznie z rachunku LIVE; gdy terminal jest zalogowany na DEMO, kończy bez zapisu (21.11.2026).
 - NIE wysyła zleceń, NIE zmienia SL/TP, NIE zamyka pozycji.
 - Przyrostowy: tiki zapisywane per dzień (data/ticks/<SYM>/YYYY-MM-DD.parquet),
   M1 per miesiąc (data/m1/<SYM>/YYYY-MM.parquet). Ponowne uruchomienie dociąga
@@ -12,14 +13,42 @@ Użycie:  python collect_mt5.py [--days 120] [--m1-months 36] [--symbols ETHUSD,
 import argparse, json, os, sys, time, datetime as dt
 from pathlib import Path
 import numpy as np, pandas as pd
-import MetaTrader5 as mt5
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from srvtime import to_utc_s
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"; LOGS = ROOT / "logs"; REPORTS = ROOT / "reports"
 UTC = dt.timezone.utc
-FORBIDDEN = ("order_send", "order_check", "positions_get", "login")  # dokumentacyjnie: nie używamy
+
+# Twarda lista dozwolonych wywołań (21.11.2026). account_info: tylko trade_mode i nazwa serwera.
+ALLOWED = frozenset({"initialize", "shutdown", "last_error", "version", "terminal_info", "account_info",
+                     "symbols_get", "symbol_info", "symbol_info_tick", "copy_rates_range", "copy_ticks_range"})
+
+
+class ReadOnlyMT5:
+    """Przepuszcza tylko ALLOWED i stałe (WIELKIE_LITERY); zlecenia, pozycje, historia, login i
+    symbol_select dają PermissionError."""
+
+    def __init__(self, module):
+        self._m = module
+
+    def __getattr__(self, name):
+        if name.isupper() or name in ALLOWED:
+            return getattr(self._m, name)
+        raise PermissionError(f"Kolektor nie wywołuje MetaTrader5.{name} (tylko odczyt)")
+
+
+def demo_skip_reason(ai, sdk):
+    """Powód pominięcia albo None. Ticki zapisujemy tylko z rachunku LIVE (decyzja Karola z 21.11.2026:
+    terminal bywa przelogowany na DEMO, a pliki tików nie mają znacznika serwera)."""
+    if ai is None:
+        return "brak odczytu konta"
+    if getattr(ai, "trade_mode", None) != sdk.ACCOUNT_TRADE_MODE_REAL:
+        return f"terminal nie jest zalogowany na rachunek LIVE (server={getattr(ai, 'server', '?')})"
+    return None
+
+
+mt5 = None  # ReadOnlyMT5 ustawiany w main()
 
 def log(msg):
     line = f"{dt.datetime.now().isoformat(timespec='seconds')} {msg}"
@@ -160,13 +189,42 @@ def inventory(sym, off):
                      "largest_gaps": [{"gap_min": int(g[i] // 60), "after_warsaw": conv(m["time"].iloc[i])} for i in idx]}
     return inv
 
+def selftest():
+    from types import SimpleNamespace as NS
+
+    class Fake:
+        ACCOUNT_TRADE_MODE_REAL = 2
+
+        def __getattr__(self, name):
+            raise AssertionError(f"wrapper przepuścił {name}")
+
+    ro = ReadOnlyMT5(Fake())
+    for bad in ("order_send", "order_check", "positions_get", "orders_get", "history_deals_get", "login",
+                "symbol_select"):
+        try:
+            getattr(ro, bad)
+            raise AssertionError(f"{bad} przepuszczone")
+        except PermissionError:
+            pass
+    assert demo_skip_reason(NS(trade_mode=2, server="Broker-Live"), Fake) is None
+    assert demo_skip_reason(NS(trade_mode=0, server="Broker-Demo"), Fake)
+    assert demo_skip_reason(None, Fake)
+    print("selftest OK")
+
+
 def main():
+    global mt5
     ap = argparse.ArgumentParser()
     ap.add_argument("--symbols", default="ETHUSD,XAUUSD")
     ap.add_argument("--days", type=int, default=120)
     ap.add_argument("--m1-months", type=int, default=36)
     ap.add_argument("--empty-stop", type=int, default=6)
+    ap.add_argument("--selftest", action="store_true", help="testy bez terminala")
     a = ap.parse_args()
+    if a.selftest:
+        selftest(); return
+    import MetaTrader5 as raw_mt5
+    mt5 = ReadOnlyMT5(raw_mt5)
     LOGS.mkdir(exist_ok=True); REPORTS.mkdir(exist_ok=True)
     # Podpięcie do działającego terminala, BEZ loginu/hasła.
     TERM = os.environ.get("MT5_TERMINAL", r"C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe")
@@ -175,6 +233,12 @@ def main():
     ti = mt5.terminal_info(); ai = mt5.account_info()
     log(f"terminal: {ti.name if ti else '?'} build={mt5.version()} trade_allowed={getattr(ti,'trade_allowed',None)} "
         f"server={getattr(ai,'server','?')}")
+    skip = demo_skip_reason(ai, mt5)
+    if skip:
+        # Nic nie zapisujemy: pliki tików i M1 pochodzą wyłącznie z rachunku LIVE.
+        log(f"pominięto zbieranie: {skip}")
+        mt5.shutdown()
+        return
     out = {"generated_local": dt.datetime.now().isoformat(timespec="seconds"),
            "server": getattr(ai, "server", None), "maxbars": getattr(ti, "maxbars", None), "symbols": []}
     for base in a.symbols.split(","):
@@ -182,8 +246,9 @@ def main():
         if not sym:
             log(f"brak symbolu {base}"); continue
         si = mt5.symbol_info(sym)
-        if si is not None and not si.visible:
-            mt5.symbol_select(sym, True)  # tylko widoczność w Market Watch (read-only)
+        if si is None or not si.visible:
+            # Od 21.11.2026 kolektor nie zmienia Market Watch (bez symbol_select).
+            log(f"{base}: {sym} poza Market Watch — pominięty"); continue
         off = server_offset_hours(sym)
         log(f"{base}: wybrano {sym} (kandydaci {cands}) offset serwera ~{off}h")
         collect_m1(sym, a.m1_months)

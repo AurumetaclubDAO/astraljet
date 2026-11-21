@@ -1,13 +1,13 @@
 refresh_seconds = 45
 # desktop: domyślnie pulpit bieżącego użytkownika (Path.home() / 'Desktop'); nadpisz tu tylko w razie potrzeby.
-# Na SOLYG-OMEN nie ma terminala DEMO; obie instalacje są zalogowane na LIVE.
-# Zgoda Karola 21.11.2026: panel czyta saldo i pozycje rachunku LIVE (bez historii)
-# z terminala danych, tylko gdy ma wyłączone Algo Trading. Numer i serwer rachunku
-# są w lokalnym .runtime/dashboard/accounts.toml. Terminal główny (handel ręczny) jest zabroniony.
-account_mode = 'LIVE'
-terminal_path = 'E:\MT5-DEMO\Vantage\terminal64.exe'
+# 21.11.2026: Karol zalogował terminal z C:\Program Files na nowe konto DEMO projektu i wybrał je
+# dla panelu. Bramka przy każdym odczycie sprawdza numer (lokalny accounts.toml), tryb DEMO i serwer;
+# ścieżka o niczym nie świadczy. Terminal w E:\MT5-DEMO jest zalogowany na LIVE: zabroniony.
+# Tryb LIVE (saldo i pozycje, bez historii) nadal jest dostępny: account_mode = 'LIVE'.
+account_mode = 'DEMO'
+terminal_path = 'C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe'
 forbidden_terminal_paths = [
-  'C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe',
+  'E:\MT5-DEMO\Vantage\terminal64.exe',
 ]
 server = 'VantageMarkets-Demo'
 mt5_enabled = true
