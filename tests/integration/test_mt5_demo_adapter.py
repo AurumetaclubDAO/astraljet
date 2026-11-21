@@ -1,4 +1,4 @@
-﻿"""Adapter zleceń MT5 tylko dla DEMO: testy na atrapie terminala (bez połączenia z brokerem)."""
+"""Adapter zleceń MT5 tylko dla DEMO: testy na atrapie terminala (bez połączenia z brokerem)."""
 from __future__ import annotations
 
 import dataclasses
@@ -48,7 +48,7 @@ class FakeMT5:
         else:
             self.positions[ticket] = NS(ticket=ticket, symbol=request["symbol"], type=request["type"],
                                         volume=request["volume"], magic=request["magic"], price_current=3000.5)
-        self.deals.append(NS(magic=request["magic"], comment=request["comment"], ticket=ticket))
+        self.deals.append(NS(magic=request["magic"], comment=request["comment"], ticket=ticket, order=ticket))
         return NS(retcode=10009, order=ticket, deal=ticket, price=request["price"] + 0.5, volume=request["volume"])
 
     def positions_get(self, ticket=None, symbol=None):
@@ -57,6 +57,7 @@ class FakeMT5:
         return tuple(self.positions.values())
 
     def history_deals_get(self, start, end): return tuple(self.deals)
+    def shutdown(self): self.closed = True
 
 
 class MT5DemoCase(ExecutorCase):
@@ -67,7 +68,7 @@ class MT5DemoCase(ExecutorCase):
     def setUp(self) -> None:
         super().setUp()
         self.mt5 = FakeMT5()
-        self.adapter = MT5DemoAdapter(self.database, self.guard, self.mt5, RULE)
+        self.adapter = MT5DemoAdapter(self.database, self.guard, self.mt5, RULE, symbols=("ETHUSD",))
         self.n = 0
 
     def submit(self, intent, **kwargs):
@@ -213,3 +214,98 @@ class LimitsAndCalls(MT5DemoCase):
         text = repr([e.payload for e in EventStore(self.database).list_for_record("SYSTEM-EXECUTOR")])
         self.assertNotIn("81234567", text)
         self.assertNotIn("Broker-Demo", text)
+
+
+class SdkBoundary(MT5DemoCase):
+    """Granica SDK: sam słownik zlecenia, niezależnie od bramki wykonawcy."""
+
+    def request(self, **changes):
+        base = {"action": FakeMT5.TRADE_ACTION_DEAL, "symbol": "ETHUSD", "volume": 0.01, "type": FakeMT5.ORDER_TYPE_BUY,
+                "price": 3001.0, "deviation": 50, "magic": PROBE_MAGIC, "comment": "AJ-x", "type_time": 0,
+                "type_filling": 2}
+        base.update(changes)
+        return {k: v for k, v in base.items() if v is not None or k == "position"}
+
+    def test_only_minimal_market_buy_or_closing_sell_passes(self) -> None:
+        sdk = OrderSDK(self.mt5, symbols=("ETHUSD",))
+        sdk.order_check(self.request())
+        sdk.order_check(self.request(type=FakeMT5.ORDER_TYPE_SELL, position=1001))
+        bad = {
+            "zlecenie oczekujące": self.request(action=5),
+            "modyfikacja SL/TP": self.request(action=6),
+            "inny symbol": self.request(symbol="BTCUSD"),
+            "większy wolumen": self.request(volume=0.02),
+            "inny magic": self.request(magic=1),
+            "sprzedaż bez ticketu": self.request(type=FakeMT5.ORDER_TYPE_SELL),
+            "kupno z ticketem": self.request(position=1001),
+            "typ zlecenia limit": self.request(type=2),
+            "dodatkowe pole": {**self.request(), "sl": 2900.0},
+        }
+        for name, request in bad.items():
+            for call in ("order_check", "order_send"):
+                with self.subTest(case=name, call=call), self.assertRaises(PermissionError):
+                    getattr(sdk, call)(request)
+        self.assertEqual(2, len(self.mt5.checks))
+        self.assertEqual([], self.mt5.sends)
+
+    def test_sell_without_ticket_is_refused_by_adapter(self) -> None:
+        self.assertEqual("sell_without_position", self.blocker(lambda: self.submit(self.eth("SELL-1", side="sell"))))
+        self.assertEqual([], self.mt5.sends)
+
+    def test_symbol_outside_adapter_list_is_refused_before_write_ahead(self) -> None:
+        self.assertEqual("request_not_allowed", self.blocker(lambda: self.submit(order("BTC-1", quantity="0.01", price="3000"))))
+        self.assertEqual([], self.intents())
+
+
+class UncertainResults(MT5DemoCase):
+    def test_non_done_retcode_is_uncertain_and_blocks(self) -> None:
+        original = self.mt5.order_send
+        self.mt5.order_send = lambda request: (self.mt5.sends.append(request), NS(retcode=10004, order=0, deal=0))[1]
+        self.assertIs(self.submit(self.eth("OPEN-1")).state, ExecutionResultState.UNCERTAIN)
+        self.mt5.order_send = original
+        self.assertEqual("unresolved_execution", self.blocker(lambda: self.submit(self.eth("OPEN-2"))))
+        self.assertEqual(1, len(self.mt5.sends))
+
+    def test_connection_error_is_uncertain_without_retry(self) -> None:
+        def broken(request):
+            self.mt5.sends.append(request)
+            raise ConnectionError("sieć")
+        self.mt5.order_send = broken
+        self.assertIs(self.submit(self.eth("OPEN-1")).state, ExecutionResultState.UNCERTAIN)
+        self.assertEqual(1, len(self.mt5.sends))
+        self.assertEqual([("OPEN-1", "uncertain")], self.intents())
+
+    def test_reconcile_uses_order_ticket_first(self) -> None:
+        self.submit(self.eth("OPEN-1"))
+        ticket = self.adapter.response("mt5-demo-0001")["order"]
+        self.mt5.deals = [NS(magic=PROBE_MAGIC, comment="nadpisany przez brokera", ticket=ticket, order=ticket)]
+        receipt = self.adapter.reconcile("MT5D-OPEN-1", idempotency_key="reconcile-0003", now=NOW,
+                                         since=NOW - timedelta(hours=1))
+        self.assertIs(receipt.state, ExecutionResultState.ACCEPTED)
+
+
+class NoPathToLive(MT5DemoCase):
+    def test_constructor_refuses_non_demo(self) -> None:
+        with self.assertRaises(Exception):
+            MT5DemoAdapter(self.database, self.guard, self.mt5, RULE, symbols=("ETHUSD",),
+                           environment=ExecutionEnvironment.PAPER_CONTINUOUS)
+        with self.assertRaises(Exception):
+            MT5DemoAdapter(self.database, self.guard, self.mt5,
+                           DemoAccountRule(label="X", login=1, server="Broker-Live"), symbols=("ETHUSD",))
+        with self.assertRaises(Exception):
+            MT5DemoAdapter(self.database, self.guard, self.mt5, RULE, symbols=())
+
+    def test_real_account_closes_connection(self) -> None:
+        self.mt5.closed = False
+        self.mt5.account = NS(login=999, trade_mode=2, server="Broker-Live")
+        self.blocker(lambda: self.submit(self.eth("OPEN-1")))
+        self.assertTrue(self.mt5.closed)
+
+    def test_adapter_is_imported_only_by_probe_script(self) -> None:
+        from pathlib import Path
+        root = Path(__file__).resolve().parents[2]
+        users = sorted(str(p.relative_to(root)).replace("\\", "/") for folder in ("src", "scripts")
+                       for p in (root / folder).rglob("*.py")
+                       if "mt5_demo" in p.read_text(encoding="utf-8", errors="ignore")
+                       and p.name != "mt5_demo.py")
+        self.assertEqual(["scripts/demo_order_probe.py"], users)

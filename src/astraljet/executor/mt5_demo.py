@@ -42,10 +42,49 @@ PROBE_MAGIC = 2026112101
 
 
 class OrderSDK:
-    """Przepuszcza tylko ALLOWED_CALLS i stałe (WIELKIE_LITERY)."""
+    """Przepuszcza tylko ALLOWED_CALLS i stałe (WIELKIE_LITERY).
 
-    def __init__(self, sdk) -> None:
+    order_check i order_send sprawdzają sam słownik zlecenia, niezależnie od bramki wykonawcy:
+    tylko natychmiastowa transakcja, symbol z listy, wolumen równy najmniejszemu lotowi, magic próby,
+    kupno bez ticketu albo sprzedaż z ticketem pozycji (rachunek hedge: sprzedaż bez ticketu otworzyłaby
+    drugą pozycję). Wszystko inne to PermissionError bez wywołania SDK.
+    """
+
+    REQUEST_KEYS = frozenset({"action", "symbol", "volume", "type", "price", "deviation", "magic", "comment",
+                              "type_time", "type_filling", "position"})
+
+    def __init__(self, sdk, *, symbols: tuple[str, ...] = (), magic: int = PROBE_MAGIC) -> None:
         self._sdk = sdk
+        self._symbols = frozenset(symbols)
+        self._magic = magic
+
+    def validate_request(self, request: dict) -> None:
+        sdk = self._sdk
+        if not isinstance(request, dict) or set(request) - self.REQUEST_KEYS:
+            raise PermissionError("Zlecenie zawiera pola spoza dozwolonej listy.")
+        if request.get("action") != sdk.TRADE_ACTION_DEAL:
+            raise PermissionError("Dozwolona jest tylko natychmiastowa transakcja (TRADE_ACTION_DEAL).")
+        if request.get("symbol") not in self._symbols:
+            raise PermissionError("Symbol spoza mandatu.")
+        if request.get("magic") != self._magic:
+            raise PermissionError("Zlecenie bez magic próby.")
+        info = sdk.symbol_info(request["symbol"])
+        if info is None or _num(request.get("volume")) != _num(info.volume_min):
+            raise PermissionError("Wolumen musi być równy najmniejszemu lotowi symbolu.")
+        kind, position = request.get("type"), request.get("position")
+        if kind == sdk.ORDER_TYPE_BUY and position is None:
+            return
+        if kind == sdk.ORDER_TYPE_SELL and isinstance(position, int) and position > 0:
+            return
+        raise PermissionError("Dozwolone: kupno bez ticketu albo sprzedaż zamykająca wskazaną pozycję.")
+
+    def order_check(self, request):
+        self.validate_request(request)
+        return self._sdk.order_check(request)
+
+    def order_send(self, request):
+        self.validate_request(request)
+        return self._sdk.order_send(request)
 
     def __getattr__(self, name: str):
         if name.isupper() or name in ALLOWED_CALLS:
@@ -84,12 +123,21 @@ class MT5DemoAdapter:
         sdk: object,
         rule: DemoAccountRule,
         *,
+        symbols: tuple[str, ...],
+        environment: ExecutionEnvironment = ExecutionEnvironment.BROKER_DEMO,
         magic: int = PROBE_MAGIC,
         deviation_points: int = 50,
     ) -> None:
+        # Adapter nie ma ścieżki dla rachunku innego niż DEMO.
+        if environment is not ExecutionEnvironment.BROKER_DEMO:
+            raise ValidationError("MT5DemoAdapter działa wyłącznie w środowisku BROKER_DEMO.")
+        if "demo" not in rule.server.casefold():
+            raise ValidationError("Wskazany serwer nie jest serwerem DEMO.")
+        if not symbols:
+            raise ValidationError("Adapter wymaga jawnej listy symboli.")
         self.database = database
         self.guard = guard
-        self.sdk = OrderSDK(sdk)
+        self.sdk = OrderSDK(sdk, symbols=symbols, magic=magic)
         self.rule = rule
         self.magic = magic
         self.deviation_points = deviation_points
@@ -118,6 +166,11 @@ class MT5DemoAdapter:
             return
         message, code, real = problem
         if real:
+            # Wykrycie LIVE: rozłączenie i trwały wyłącznik awaryjny (zdejmuje go tylko Karol).
+            try:
+                self.sdk.shutdown()
+            except Exception:  # noqa: BLE001 - rozłączenie nie może zablokować zapisu wyłącznika
+                pass
             self.guard.activate_kill_switch(
                 context.environment_id,
                 reason=f"Rachunek inny niż DEMO wykryty ({stage}).",
@@ -211,6 +264,10 @@ class MT5DemoAdapter:
             raise deny("Symbol niedostępny w Market Watch.", "symbol_unavailable", "Dodaj symbol ręcznie w terminalu.")
         volume = self._volume(context, intent, info)
         closing = position_ticket is not None
+        if not closing and intent.side != "buy":
+            # Rachunek hedge: sprzedaż bez ticketu nie zamyka kupna, tylko otwiera przeciwną pozycję.
+            raise deny("Sprzedaż jest dozwolona tylko jako zamknięcie wskazanej pozycji (ticket).",
+                       "sell_without_position", "Podaj ticket zamykanej pozycji.")
         if closing:
             held = self.sdk.positions_get(ticket=position_ticket)
             if not held or held[0].symbol != intent.instrument or int(held[0].magic) != self.magic:
@@ -225,6 +282,29 @@ class MT5DemoAdapter:
         if limit is not None and not closing and self._gross_after(intent, closing) > limit:
             raise deny("Po zleceniu łączna ekspozycja rachunku przekroczyłaby limit mandatu.",
                        "gross_exposure_exceeded", "Zmniejsz zlecenie; nie zwiększaj limitu bez decyzji Karola.")
+
+        tick = self.sdk.symbol_info_tick(intent.instrument)
+        if tick is None or not tick.ask or not tick.bid:
+            raise deny("Brak bieżącej ceny symbolu.", "price_unavailable", "Sprawdź notowania w terminalu.")
+        price = tick.ask if intent.side == "buy" else tick.bid
+        request = {
+            "action": self.sdk.TRADE_ACTION_DEAL,
+            "symbol": intent.instrument,
+            "volume": float(volume),
+            "type": self.sdk.ORDER_TYPE_BUY if intent.side == "buy" else self.sdk.ORDER_TYPE_SELL,
+            "price": price,
+            "deviation": self.deviation_points,
+            "magic": self.magic,
+            "comment": _comment(intent.intent_id),
+            "type_time": self.sdk.ORDER_TIME_GTC,
+            "type_filling": self._filling(info),
+        }
+        if closing:
+            request["position"] = int(position_ticket)
+        try:
+            self.sdk.validate_request(request)  # granica SDK, niezależnie od bramki
+        except PermissionError as exc:
+            raise deny(f"Zlecenie odrzucone na granicy SDK: {exc}", "request_not_allowed", "Popraw intencję.") from exc
 
         external_reference = f"MT5D-{intent.intent_id}"
         created_at = _iso(now)
@@ -250,7 +330,7 @@ class MT5DemoAdapter:
                      created_at, created_at))
         if denial:
             raise deny(*denial)
-        return self._send(context, intent, info, volume, position_ticket, idempotency_key, external_reference, now)
+        return self._send(context, request, idempotency_key, external_reference, now)
 
     @staticmethod
     def _duplicate_denial(connection, context, intent):
@@ -265,48 +345,49 @@ class MT5DemoAdapter:
             return DUPLICATE_INTENT
         return None
 
-    def _send(self, context, intent, info, volume, position_ticket, idempotency_key, external_reference, now):
-        tick = self.sdk.symbol_info_tick(intent.instrument)
-        if tick is None or not tick.ask or not tick.bid:
-            return self._finish(context, idempotency_key, external_reference, ExecutionResultState.REJECTED,
-                                {"stage": "tick", "error": "brak ceny"}, now, "Brak bieżącej ceny; zlecenia nie wysłano.")
-        price = tick.ask if intent.side == "buy" else tick.bid
-        request = {
-            "action": self.sdk.TRADE_ACTION_DEAL,
-            "symbol": intent.instrument,
-            "volume": float(volume),
-            "type": self.sdk.ORDER_TYPE_BUY if intent.side == "buy" else self.sdk.ORDER_TYPE_SELL,
-            "price": price,
-            "deviation": self.deviation_points,
-            "magic": self.magic,
-            "comment": _comment(intent.intent_id),
-            "type_time": self.sdk.ORDER_TIME_GTC,
-            "type_filling": self._filling(info),
-        }
-        if position_ticket is not None:
-            request["position"] = int(position_ticket)
-        self.ensure_demo(context, "przed order_check")
-        check = self.sdk.order_check(request)
+    def _send(self, context, request, idempotency_key, external_reference, now):
+        """Jedno order_send na intencję. Wszystko poza potwierdzonym wykonaniem zostaje uncertain."""
+        def not_sent(stage, exc):
+            # Przed wysłaniem nic nie poszło do brokera: wynik pewny (rejected), potem odmowa.
+            self._finish(context, idempotency_key, external_reference, ExecutionResultState.REJECTED,
+                         {"stage": stage, "error": getattr(exc, "blocker", type(exc).__name__)}, now,
+                         "Zlecenia nie wysłano.")
+            raise exc
+
+        try:
+            self.ensure_demo(context, "przed order_check")
+            check = self.sdk.order_check(request)
+        except Exception as exc:  # noqa: BLE001
+            not_sent("order_check", exc)
         if check is None or int(check.retcode) != 0:
             return self._finish(context, idempotency_key, external_reference, ExecutionResultState.REJECTED,
                                 {"stage": "order_check", "retcode": None if check is None else int(check.retcode)},
                                 now, "order_check odrzucił zlecenie; nie wysłano.")
-        self.ensure_demo(context, "przed order_send")
-        result = self.sdk.order_send(request)
+        try:
+            self.ensure_demo(context, "przed order_send")
+        except Exception as exc:  # noqa: BLE001
+            not_sent("przed order_send", exc)
+        price = request["price"]
+        try:
+            result = self.sdk.order_send(request)
+        except Exception as exc:  # noqa: BLE001 - błąd połączenia: wynik nieznany
+            result, error = None, type(exc).__name__
+        else:
+            error = None
         try:
             self.ensure_demo(context, "po order_send")
         finally:
-            if result is None:
-                state, response, message = ExecutionResultState.UNCERTAIN, {"stage": "order_send", "result": None}, \
-                    "Brak odpowiedzi order_send; wynik wymaga uzgodnienia."
-            elif int(result.retcode) in (RETCODE_DONE, RETCODE_DONE_PARTIAL):
+            if result is not None and int(result.retcode) == RETCODE_DONE:
                 state, message = ExecutionResultState.ACCEPTED, "Zlecenie DEMO wykonane."
                 response = {"stage": "order_send", "retcode": int(result.retcode), "order": int(result.order),
-                            "deal": int(result.deal), "requested_price": float(price), "fill_price": float(result.price),
-                            "volume": float(result.volume)}
+                            "deal": int(result.deal), "requested_price": float(price),
+                            "fill_price": float(result.price), "volume": float(result.volume)}
             else:
-                state, message = ExecutionResultState.REJECTED, "Serwer DEMO odrzucił zlecenie."
-                response = {"stage": "order_send", "retcode": int(result.retcode)}
+                # Brak wyniku, błąd połączenia albo kod inny niż wykonanie: uzgodnienie po magic i tickecie.
+                state, message = ExecutionResultState.UNCERTAIN, "Wynik order_send niepotwierdzony; wymaga uzgodnienia."
+                response = {"stage": "order_send", "retcode": None if result is None else int(result.retcode),
+                            "order": None if result is None else int(getattr(result, "order", 0) or 0) or None,
+                            "error": error, "requested_price": float(price)}
             receipt = self._finish(context, idempotency_key, external_reference, state, response, now, message)
         return receipt
 
@@ -356,11 +437,16 @@ class MT5DemoAdapter:
         if row is None:
             raise ValidationError("Nie znaleziono referencji.")
         comment = _comment(row["intent_id"])
+        order_ticket = self.response(row["idempotency_key"]).get("order")
         deals = self.sdk.history_deals_get(since, now)
         if deals is None:
             return ExecutionReceipt(ExecutionResultState.UNCERTAIN, row["intent_id"], external_reference,
                                     "Brak odczytu historii; stan pozostaje nierozstrzygnięty.")
-        found = [d for d in deals if int(d.magic) == self.magic and str(d.comment) == comment]
+        own = [d for d in deals if int(d.magic) == self.magic]
+        if order_ticket:  # pierwszy klucz: ticket zlecenia z wyniku order_send i magic
+            found = [d for d in own if int(getattr(d, "order", 0) or 0) == int(order_ticket)]
+        else:  # bez wyniku order_send: komentarz intencji (pomocniczo; broker może go skrócić)
+            found = [d for d in own if str(d.comment) == comment]
         result = ExecutionResultState.ACCEPTED if found else ExecutionResultState.REJECTED
         stamp = _iso(now)
         with self.database.transaction() as connection:

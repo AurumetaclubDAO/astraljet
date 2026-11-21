@@ -26,7 +26,7 @@ class ProbeOnFake(unittest.TestCase):
 
     def test_full_probe_sends_exactly_two_orders(self) -> None:
         mt5 = FakeMT5()
-        report = probe.run_probe(mt5, RULE, self.dir / "db")
+        report = probe.run_probe(mt5, RULE, self.dir / "db", send=True)
         self.assertEqual(2, len(mt5.sends))
         self.assertEqual("buy", "buy" if mt5.sends[0]["type"] == mt5.ORDER_TYPE_BUY else "sell")
         self.assertIn("position", mt5.sends[1])
@@ -38,7 +38,7 @@ class ProbeOnFake(unittest.TestCase):
             self.assertIn(step, text)
         self.assertNotIn("81234567", text)
         out = self.dir / "r.md"
-        probe.write_report(report, out, None)
+        probe.write_report(report, out, None, True)
         body = out.read_text(encoding="utf-8")
         self.assertNotIn("81234567", body)
         self.assertNotIn("Broker-Demo", body)
@@ -62,9 +62,9 @@ class ProbeOnFake(unittest.TestCase):
         mt5.send_returns_none = True
         report = probe.Report()
         with self.assertRaises(probe.ProbeStop):
-            probe.run_probe(mt5, RULE, self.dir / "db", report=report)
+            probe.run_probe(mt5, RULE, self.dir / "db", send=True, report=report)
         self.assertEqual(1, len(mt5.sends))
-        self.assertIn("2. otwarcie", "\n".join(report.lines))
+        self.assertIn("2. kupno", "\n".join(report.lines))
 
     def test_rule_needs_local_demo_login_and_server(self) -> None:
         p = self.dir / "accounts.toml"
@@ -79,3 +79,50 @@ class ProbeOnFake(unittest.TestCase):
             probe.check_terminal(r"C:\inny\terminal64.exe")
         with self.assertRaises(probe.ProbeStop):
             probe.check_terminal(None)
+
+
+class ProbeStartAndWindow(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.db = Path(self.tmp.name) / "state"
+
+    def test_without_flag_nothing_is_sent(self) -> None:
+        mt5 = FakeMT5()
+        report = probe.run_probe(mt5, RULE, self.db)
+        self.assertEqual([], mt5.sends)
+        self.assertIn("KONIEC (bez brokera)", "\n".join(report.lines))
+
+    def test_kill_switch_from_previous_run_blocks_start(self) -> None:
+        mt5 = FakeMT5()
+        mt5.account = NS(login=999, trade_mode=2, server="Broker-Live")
+        with self.assertRaises(probe.ProbeStop):
+            probe.run_probe(mt5, RULE, self.db, send=True)
+        self.assertTrue(mt5.closed)  # rozłączenie po wykryciu LIVE
+        again = FakeMT5()  # poprawny rachunek DEMO, ale wyłącznik z poprzedniego uruchomienia trwa
+        with self.assertRaises(probe.ProbeStop):
+            probe.run_probe(again, RULE, self.db, send=True)
+        self.assertEqual([], again.sends)
+
+    def test_leftover_probe_position_blocks_start(self) -> None:
+        mt5 = FakeMT5()
+        mt5.positions[5] = NS(ticket=5, symbol="ETHUSD", type=0, volume=0.01, magic=probe.PROBE_MAGIC, price_current=3000.0)
+        with self.assertRaises(probe.ProbeStop):
+            probe.run_probe(mt5, RULE, self.db, send=True)
+        self.assertEqual([], mt5.sends)
+
+    def test_symbol_not_in_market_watch_blocks_start(self) -> None:
+        mt5 = FakeMT5()
+        mt5.symbol_info = lambda symbol: NS(visible=False, trade_contract_size=1.0, volume_step=0.01, volume_min=0.01,
+                                            volume_max=100.0, filling_mode=2)
+        with self.assertRaises(probe.ProbeStop):
+            probe.run_probe(mt5, RULE, self.db, send=True)
+        self.assertEqual([], mt5.sends)
+
+    def test_collector_window(self) -> None:
+        from datetime import datetime
+        now = datetime(2026, 11, 21, 8, 50)
+        self.assertTrue(probe.collector_problem(now, datetime(2026, 11, 21, 9, 0), "Ready"))
+        self.assertTrue(probe.collector_problem(now, None, "Running"))
+        self.assertIsNone(probe.collector_problem(now, datetime(2026, 11, 21, 9, 6), "Ready"))
+        self.assertIsNone(probe.collector_problem(datetime(2026, 11, 21, 2, 30), datetime(2026, 11, 21, 9, 0), "Ready"))
