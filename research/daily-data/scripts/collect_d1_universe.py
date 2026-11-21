@@ -227,15 +227,30 @@ def unusual(meta: dict) -> list[str]:
     return out
 
 
+def parse_symbols(text: str) -> tuple[str, ...]:
+    """Lista symboli z --symbole: tylko podzbiór UNIVERSE, bez powtórzeń, w kolejności podanej."""
+    picked = tuple(dict.fromkeys(s.strip() for s in text.split(",") if s.strip()))
+    unknown = [s for s in picked if s not in UNIVERSE]
+    if not picked or unknown:
+        raise ValueError(f"--symbole musi być niepustym podzbiorem listy UNIVERSE; spoza listy: {unknown}")
+    return picked
+
+
+def report_path(symbols) -> Path:
+    """Pełna lista: raport w reports/ (w Git). Odczyt częściowy (np. dzienny dla paper): obok danych, poza Git."""
+    return REPORTS / "DANE_D1_UNIWERSUM.md" if tuple(symbols) == tuple(UNIVERSE) else OUT / "ODCZYT_CZESCIOWY.md"
+
+
 def report(metas, skipped, failures, mw_before, mw_after, offset_h, maxbars, read_at, terminal="nieznany",
-           algo_trading=None) -> str:
+           algo_trading=None, listed: int | None = None) -> str:
     algo = algo_text(algo_trading)
+    listed = len(UNIVERSE) if listed is None else listed
     L = ["# Dane D1 — uniwersum kandydatów do serii 2", "",
          f"- Odczyt: {read_at} UTC, skrypt `research/daily-data/scripts/collect_d1_universe.py` (tylko odczyt).",
          f"- Źródło: {terminal}.",
          f"- Handel automatyczny w terminalu (przycisk Algo Trading) w chwili odczytu: {algo}.",
          "- Pliki danych: `research/daily-data/data/uniwersum/` (pomijane przez Git).",
-         f"- Symboli na liście: {len(UNIVERSE)}; pobrano: {len(metas)}; pominięto (poza Market Watch lub brak u brokera): {len(skipped)}; błędy: {len(failures)}.",
+         f"- Symboli na liście: {listed}; pobrano: {len(metas)}; pominięto (poza Market Watch lub brak u brokera): {len(skipped)}; błędy: {len(failures)}.",
          f"- Symbole w Market Watch przed odczytem: {mw_before}, po odczycie: {mw_after}"
          + (" (bez zmian)." if mw_before == mw_after else " — **ZMIANA, sprawdzić**."),
          "- `symbol_select` nie było wywołane (skrypt blokuje je w każdej postaci), `account_info` także.",
@@ -330,9 +345,11 @@ def run(symbols=UNIVERSE, allow_algo: bool = False) -> int:
         mw_after = sum(1 for s in (mt5.symbols_get() or []) if s.visible)
     finally:
         mt5.shutdown()
-    REPORTS.mkdir(parents=True, exist_ok=True)
-    (REPORTS / "DANE_D1_UNIWERSUM.md").write_text(
-        report(metas, skipped, failures, mw_before, mw_after, offset, maxbars, read_at, label, algo_trading),
+    target = report_path(symbols)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        report(metas, skipped, failures, mw_before, mw_after, offset, maxbars, read_at, label, algo_trading,
+               listed=len(symbols)),
         encoding="utf-8")
     log(f"gotowe: pobrano {len(metas)}, pominięto {len(skipped)}, błędy {len(failures)}, MW {mw_before}->{mw_after}")
     if mw_before != mw_after:
@@ -445,7 +462,7 @@ def selftest() -> int:
         try:
             assert run(symbols=(), allow_algo=flag) == code, (allowed, flag)
             if code != EXIT_ALGO_TRADING:  # z flagą przy włączonym Algo: raport mówi o zgodzie
-                txt = (tmp / "reports" / "DANE_D1_UNIWERSUM.md").read_text(encoding="utf-8")
+                txt = (tmp / "out" / "ODCZYT_CZESCIOWY.md").read_text(encoding="utf-8")  # symbols=() to odczyt częściowy
                 assert ALGO_CONSENT in txt and ALGO_FLAG in txt
                 assert "shutdown" in fake.calls and not any(c.startswith(("order", "position", "history"))
                                                             for c in fake.calls)
@@ -463,6 +480,17 @@ def selftest() -> int:
             globals()["log"] = _log
         if expected_calls is not None:
             assert fake.calls == expected_calls, fake.calls
+    basket = parse_symbols("IWM, XLF,XLK,EFA,EEM,FXI,GDX,USO,DBC,BNO,ETHUSD,IWM")
+    assert len(basket) == 11 and basket[0] == "IWM"
+    for bad in ("", "IWM,NIE-MA", "SPY;QQQ"):
+        try:
+            parse_symbols(bad)
+            raise AssertionError(f"parse_symbols przepuścił {bad!r}")
+        except ValueError:
+            pass
+    assert report_path(UNIVERSE) == REPORTS / "DANE_D1_UNIWERSUM.md"
+    assert report_path(basket).parent == OUT  # odczyt częściowy nie nadpisuje raportu w Git
+    assert "- Symboli na liście: 11;" in report([], [], [], 1, 1, 2, 100000, "x", "t", False, listed=11)
     print("selftest OK")
     return 0
 
@@ -473,8 +501,13 @@ def main() -> int:
     ap.add_argument(ALGO_FLAG, dest="allow_algo", action="store_true",
                     help="czytaj także przy włączonym Algo Trading (zgoda Karola z 21.11.2026); "
                          "lista dozwolonych wywołań bez zmian")
+    ap.add_argument("--symbole", help="tylko te symbole z UNIVERSE, po przecinku (np. koszyk paper serii 2); "
+                                      "raport wtedy poza Git: data/uniwersum/ODCZYT_CZESCIOWY.md")
     a = ap.parse_args()
-    return selftest() if a.selftest else run(allow_algo=a.allow_algo)
+    if a.selftest:
+        return selftest()
+    symbols = parse_symbols(a.symbole) if a.symbole else UNIVERSE
+    return run(symbols, allow_algo=a.allow_algo)
 
 
 if __name__ == "__main__":
