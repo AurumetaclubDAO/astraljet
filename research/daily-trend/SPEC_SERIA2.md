@@ -2,7 +2,7 @@
 
 Data zapisu: 20.11.2026. Autor: Claude (koordynator). **Status: PROJEKT. Czeka na akceptację Karola; do tego czasu żaden test serii 2 nie rusza.**
 
-Zmiana 21.11.2026, przed jakimkolwiek testem: wpisana prowizja od CFD na ETF-y (punkty 5 i 8), opis wypłat według materiału brokera i ograniczenie danych o spreadzie ETF-ów (punkt 8). Reguły doboru, hipotezy i kryteria bez zmian.
+Zmiana 21.11.2026, przed jakimkolwiek testem: wpisana prowizja od CFD na ETF-y (punkty 5 i 8), opis wypłat według materiału brokera i ograniczenie danych o spreadzie ETF-ów (punkt 8). Tego samego dnia: spread w rachunku kosztów z pomiaru na tickach (punkt 5). Reguły doboru, hipotezy i kryteria bez zmian.
 
 Co było znane w chwili zapisu:
 
@@ -68,6 +68,8 @@ Jak w serii 1 (`SPEC_H2_H3.md`), z poniższymi zmianami.
 ## 5. Koszty
 
 - Koszt jednej strony transakcji. Bazowy: połowa spreadu + 1 pb. Stresowy: cały spread + 2 pb.
+  - Spread rynku w tym rachunku (dopisane 21.11.2026, przed jakimkolwiek testem): dla symboli zmierzonych z historii ticków (`research/daily-data/reports/SPREAD_TICKI_SERIA2.md`, 30 dni do 20.11.2026) mediana z ticków, dla ETF-ów z USA z godzin sesji. Dla pozostałych symboli spread z punktu 2.4.
+  - Dopuszczenie symbolu (punkt 2.4) zostaje policzone tak, jak zapisano pierwotnie; pomiar z ticków go nie zmienia.
 - Prowizja od CFD na ETF-y (wpisana 21.11.2026, przed jakimkolwiek testem): 12 USD za transakcję w obie strony. Źródło: publiczna tabela prowizji brokera, odczyt 20.11.2026; stawka jest w niej taka sama dla obu typów rachunku z prowizją. Specyfikacja symbolu w terminalu prowizji nie pokazuje, więc stawka jest do potwierdzenia na pierwszej rzeczywistej transakcji.
   - Liczona jako 6 USD za każdą stronę każdej transakcji na ETF-ie, niezależnie od wielkości, także przy częściowym zamknięciu i przy korekcie wielkości pozycji. To założenie, bo tabela podaje tylko kwotę za obie strony.
   - Bazowy: 6 USD za stronę. Stresowy: 1,5 × stawka, czyli 9 USD za stronę.
@@ -119,7 +121,7 @@ Okres 2025–2026 był już oglądany 36 razy na innych hipotezach. PASS dopuszc
 | G: największa łączna ekspozycja (bez dźwigni albo z dźwignią do limitu) | Karol | Test nie rusza |
 | Prowizja od CFD na ETF-y | ustalona 21.11.2026 (punkt 5) z publicznej tabeli brokera; do potwierdzenia na pierwszej rzeczywistej transakcji | Już nie blokuje testu; raport podaje ją jako założenie |
 | Wypłaty na CFD: czy i jak broker koryguje pozycje długie i krótkie | materiał brokera z 20.11.2026: długa strona dostaje korektę, krótka jest obciążana; przy ETF-ach zależy od funduszu; nie podano, czy brutto, czy po podatku | Zostaje szacunek z punktu 5, opisany w raporcie jako ograniczenie |
-| Spread ETF-ów: w świecach D1 broker zapisuje zero | kilka odczytów w godzinach sesji USA, każdy na zgodę Karola | Do tego czasu spread z jednego odczytu (ostatnie notowanie sesji 20.11.2026), opisany jako ograniczenie |
+| Spread ETF-ów: w świecach D1 broker zapisuje zero | uzupełnione 21.11.2026 pomiarem z historii ticków dla 17 symboli (punkt 5) | Już nie blokuje; ograniczenie: pomiar obejmuje 30 dni, nie całą historię |
 | Rozliczenie skoku ceny przy rolowaniu kontraktów opartych na futures | specyfikacja brokera | Te symbole są poza koszykiem (punkt 2.6) |
 
 ## 9. Etap paper
