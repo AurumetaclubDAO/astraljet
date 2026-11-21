@@ -15,7 +15,28 @@ class GateError(ValueError):
     pass
 
 
+# Jedyne wywołania SDK, jakie panel wykonuje. LIVE: bez historii (zgoda obejmuje saldo i pozycje).
+READS = {
+    'DEMO': frozenset({'initialize', 'shutdown', 'account_info', 'terminal_info', 'positions_get', 'history_deals_get'}),
+    'LIVE': frozenset({'initialize', 'shutdown', 'account_info', 'terminal_info', 'positions_get'}),
+}
+
+
+class ReadOnlySDK:
+    """Przepuszcza tylko READS[tryb] i stałe (WIELKIE_LITERY); każde inne wywołanie to PermissionError."""
+
+    def __init__(self, sdk, mode):
+        self._sdk, self._allowed = sdk, READS[mode]
+
+    def __getattr__(self, name):
+        if name.isupper() or name in self._allowed:
+            return getattr(self._sdk, name)
+        raise PermissionError(f'Panel nie wywołuje MetaTrader5.{name}')
+
+
 def gate(sdk, config):
+    if config.account_mode == 'LIVE':
+        return live_gate(sdk, config)
     if config.demo_login is None:
         raise GateError('ZABLOKOWANE: brak lokalnej konfiguracji rachunku DEMO')
     account = sdk.account_info()
@@ -28,6 +49,20 @@ def gate(sdk, config):
     return account
 
 
+def live_gate(sdk, config):
+    """Odczyt LIVE tylko z jednego, lokalnie wskazanego rachunku i serwera; inaczej blokada całego odczytu."""
+    if config.live_login is None or config.live_server is None:
+        raise GateError('ZABLOKOWANE: brak lokalnej konfiguracji rachunku LIVE')
+    account = sdk.account_info()
+    if account is None:
+        raise GateError('Brak odczytu konta')
+    if account.login in config.forbidden_logins:
+        raise GateError('Rachunek zabroniony — zablokowane')
+    if account.login != config.live_login or account.trade_mode != sdk.ACCOUNT_TRADE_MODE_REAL or account.server != config.live_server:
+        raise GateError('ZABLOKOWANE: terminal zalogowany na inny rachunek niż wskazany LIVE')
+    return account
+
+
 def fnum(obj, key):
     value = float(getattr(obj, key))
     if not math.isfinite(value):
@@ -36,7 +71,7 @@ def fnum(obj, key):
 
 
 def failure(message):
-    return {k: missing('MT5 DEMO', message) for k in ('account', 'terminal', 'positions', 'history')}
+    return {k: missing('MT5', message) for k in ('account', 'terminal', 'positions', 'history')}
 
 
 def equity_curve(sdk, account, now, ttl, max_points=400):
@@ -98,6 +133,8 @@ def equity_curve(sdk, account, now, ttl, max_points=400):
 
 def read_sdk(sdk, config, now=None):
     now = now or utcnow()
+    live = config.account_mode == 'LIVE'
+    sdk = ReadOnlySDK(sdk, config.account_mode)
     try:
         if not sdk.initialize(config.terminal_path, timeout=5000):
             return failure('Brak połączenia z uruchomionym terminalem')
@@ -105,6 +142,11 @@ def read_sdk(sdk, config, now=None):
         terminal = sdk.terminal_info()
         if terminal is None or not terminal.connected:
             return failure('Terminal bez połączenia')
+        if live and terminal.trade_allowed is not False:
+            # Warunek Karola dla terminala danych: odczyt tylko przy wyłączonym Algo Trading.
+            return failure('ZABLOKOWANE: Algo Trading w terminalu LIVE nie jest wyłączony')
+        if live:
+            return read_live(sdk, config, now)
         gate(sdk, config)
         positions = sdk.positions_get()
         if positions is None:
@@ -126,11 +168,7 @@ def read_sdk(sdk, config, now=None):
         ttl = config.freshness['mt5']
         account_data = {k: fnum(final_account, k) for k in ('balance', 'equity', 'margin', 'margin_free', 'profit')}
         account_data.update(login=config.demo_login, server=config.server, currency=str(final_account.currency), mode='DEMO')
-        pos = []
-        for p in positions:
-            pos.append(dict(ticket=int(p.ticket), symbol=str(p.symbol), direction='Kupno' if p.type == 0 else 'Sprzedaż',
-                            volume=fnum(p, 'volume'), entry=fnum(p, 'price_open'), sl=fnum(p, 'sl'), tp=fnum(p, 'tp'),
-                            profit=fnum(p, 'profit'), swap=fnum(p, 'swap'), magic=int(p.magic), bot=MAGIC.get(p.magic, 'other')))
+        pos = positions_list(positions)
         history_ds = missing('MT5 / historia', 'Brak pełnego odczytu historii')
         if history is not None:
             ownership = {}
@@ -171,12 +209,41 @@ def read_sdk(sdk, config, now=None):
         sdk.shutdown()
 
 
+def positions_list(positions):
+    return [dict(ticket=int(p.ticket), symbol=str(p.symbol), direction='Kupno' if p.type == 0 else 'Sprzedaż',
+                 volume=fnum(p, 'volume'), entry=fnum(p, 'price_open'), sl=fnum(p, 'sl'), tp=fnum(p, 'tp'),
+                 profit=fnum(p, 'profit'), swap=fnum(p, 'swap'), magic=int(p.magic), bot=MAGIC.get(p.magic, 'other'))
+            for p in positions]
+
+
+def read_live(sdk, config, now):
+    """Saldo i pozycje rachunku LIVE. Bez historii deali; numer rachunku nie trafia do wyniku."""
+    positions = sdk.positions_get()
+    if positions is None:
+        return failure('Nie udało się odczytać pozycji')
+    final_account = gate(sdk, config)
+    final_terminal = sdk.terminal_info()
+    if final_terminal is None or not final_terminal.connected:
+        return failure('Terminal utracił połączenie podczas odczytu')
+    if final_terminal.trade_allowed is not False:
+        return failure('ZABLOKOWANE: Algo Trading w terminalu LIVE nie jest wyłączony')
+    ttl = config.freshness['mt5']
+    account_data = {k: fnum(final_account, k) for k in ('balance', 'equity', 'margin', 'margin_free', 'profit')}
+    account_data.update(login=None, server=None, currency=str(final_account.currency), mode='LIVE')
+    skipped = 'Historia rachunku LIVE nie jest czytana (zgoda obejmuje saldo i pozycje)'
+    return dict(account=datum(account_data, 'MT5 LIVE / konto', now, ttl, now=now),
+                terminal=datum(dict(connected=True, algo_trading=False), 'MT5 LIVE / terminal', now, ttl, now=now),
+                positions=datum(positions_list(positions), 'MT5 LIVE / pozycje', now, ttl, now=now),
+                history=missing('MT5 LIVE / historia', skipped),
+                historical_equity=missing('MT5 LIVE / historia equity', skipped))
+
+
 def worker(config):
     try:
         import psutil
         import MetaTrader5 as sdk
         if not select_terminal(config, psutil.process_iter(['name', 'exe'])):
-            return failure('Brak jednoznacznego, uruchomionego terminala DEMO')
+            return failure('Brak jednoznacznego, uruchomionego terminala z konfiguracji panelu')
         return read_sdk(sdk, config)
     except Exception:
         return failure('Adapter MT5 niedostępny')

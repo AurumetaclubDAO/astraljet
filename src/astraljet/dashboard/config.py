@@ -39,6 +39,11 @@ class Config:
     forbidden_logins: tuple = ()
     # Instalacje terminala, z którymi panel nigdy się nie łączy (np. terminal LIVE działający obok DEMO).
     forbidden_terminal_paths: tuple = ()
+    # 'DEMO' (domyślnie) albo 'LIVE'. LIVE: tylko saldo i pozycje jednego rachunku, bez historii
+    # (zgoda Karola 21.11.2026); numer i serwer rachunku LIVE są wyłącznie w lokalnym accounts.toml.
+    account_mode: str = 'DEMO'
+    live_login: int | None = None
+    live_server: str | None = None
     schedule_enabled: bool = True
     freshness: dict = field(default_factory=lambda: dict(mt5=90, schedule=90, runner=1200, arena=1200, funding=1800, shadow=108000, config=90))
 
@@ -57,6 +62,14 @@ class Config:
             raise ValueError('Niepoprawna zabroniona ścieżka terminala')
         if same_path(self.terminal_path, *self.forbidden_terminal_paths):
             raise ValueError('Ścieżka terminala DEMO jest na liście zabronionych')
+        if self.account_mode not in ('DEMO', 'LIVE'):
+            raise ValueError('Niepoprawny tryb rachunku')
+        if self.live_login is not None and (type(self.live_login) is not int or self.live_login <= 0):
+            raise ValueError('Niepoprawny numer rachunku LIVE')
+        if self.live_login is not None and self.live_login in self.forbidden_logins:
+            raise ValueError('Rachunek LIVE do odczytu nie może być na liście zabronionych')
+        if self.live_server is not None and (not isinstance(self.live_server, str) or not self.live_server):
+            raise ValueError('Niepoprawny serwer rachunku LIVE')
 
 
 def same_path(path, *others):
@@ -72,8 +85,8 @@ def load_config():
     data['desktop'] = Path(data.get('desktop', defaults.desktop))
     data['freshness'] = defaults.freshness | data.get('freshness', {})
     data['forbidden_terminal_paths'] = tuple(data.get('forbidden_terminal_paths', ()))
-    data.pop('demo_login', None)
-    data.pop('forbidden_logins', None)
+    for key in ('demo_login', 'forbidden_logins', 'live_login', 'live_server'):
+        data.pop(key, None)  # numery i serwer rachunków tylko z lokalnego pliku
     data.update(load_accounts())
     return Config(**data)
 
@@ -85,4 +98,8 @@ def load_accounts(path=ACCOUNTS_FILE):
         return {}
     with path.open('rb') as stream:
         raw = tomllib.load(stream)
-    return {'demo_login': raw.get('demo_login'), 'forbidden_logins': tuple(raw.get('forbidden_logins', ()))}
+    out = {'demo_login': raw.get('demo_login'), 'forbidden_logins': tuple(raw.get('forbidden_logins', ()))}
+    for key in ('live_login', 'live_server'):
+        if key in raw:
+            out[key] = raw[key]
+    return out

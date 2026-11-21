@@ -232,6 +232,77 @@ def test_empty_terminal_path_means_no_demo_terminal():
     assert not select_terminal(c, [proc(LIVE_EXE), proc(DEMO_EXE)])
 
 
+LIVE_SERVER = 'Broker-Live-Test'
+
+
+class LiveSDK(FakeSDK):
+    ACCOUNT_TRADE_MODE_REAL = 2
+
+    def __init__(self, login=LIVE_LOGIN, mode=2, server=LIVE_SERVER, algo=False):
+        super().__init__(login, mode, server)
+        self.algo = algo
+        self.positions = [NS(ticket=7, symbol='XAUUSD+', type=0, volume=0.01, price_open=2000.0, sl=0.0, tp=0.0,
+                             profit=1.5, swap=0.0, magic=0)]
+
+    def terminal_info(self): return NS(connected=True, trade_allowed=self.algo)
+    def order_send(self, *a): pytest.fail('order_send w panelu')
+
+
+def live_cfg(**kwargs):
+    return Config(account_mode='LIVE', live_login=LIVE_LOGIN, live_server=LIVE_SERVER, **kwargs)
+
+
+def test_live_mode_reads_balance_and_positions_only():
+    sdk = LiveSDK()
+    result = read_sdk(sdk, live_cfg())
+    assert result['account']['state'] == 'CONFIRMED' and result['account']['value']['mode'] == 'LIVE'
+    assert result['account']['value']['balance'] == 20000
+    assert result['positions']['value'][0]['symbol'] == 'XAUUSD+'
+    assert result['history']['state'] == 'MISSING' and result['historical_equity']['state'] == 'MISSING'
+    assert sdk.reads == ['positions'] and sdk.closed
+    assert str(LIVE_LOGIN) not in json.dumps(result) and LIVE_SERVER not in json.dumps(result)
+
+
+@pytest.mark.parametrize('sdk', [LiveSDK(algo=True), LiveSDK(algo=None), LiveSDK(login=DEMO_LOGIN),
+                                 LiveSDK(mode=0), LiveSDK(server='Inny-Serwer')])
+def test_live_gate_blocks_wrong_account_or_algo_on(sdk):
+    result = read_sdk(sdk, live_cfg())
+    assert all(v['value'] is None for v in result.values())
+    assert sdk.closed and not sdk.reads
+
+
+def test_live_mode_without_local_account_blocks():
+    sdk = LiveSDK()
+    assert read_sdk(sdk, Config(account_mode='LIVE'))['account']['state'] == 'MISSING'
+    assert not sdk.reads and sdk.accounts == 0
+
+
+def test_live_mode_never_calls_history_or_orders():
+    from astraljet.dashboard.collectors.mt5 import ReadOnlySDK
+    ro = ReadOnlySDK(LiveSDK(), 'LIVE')
+    for name in ('history_deals_get', 'history_orders_get', 'order_send', 'order_check', 'orders_get', 'login', 'symbol_select'):
+        with pytest.raises(PermissionError):
+            getattr(ro, name)
+    assert ro.ACCOUNT_TRADE_MODE_REAL == 2
+
+
+def test_live_login_cannot_be_forbidden():
+    with pytest.raises(ValueError):
+        Config(account_mode='LIVE', live_login=LIVE_LOGIN, live_server=LIVE_SERVER, forbidden_logins=(LIVE_LOGIN,))
+    with pytest.raises(ValueError):
+        Config(account_mode='REAL')
+
+
+def test_publisher_rejects_live_snapshot():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('publish', ROOT / 'scripts' / 'dashboard_site_publish.py')
+    pub = importlib.util.module_from_spec(spec); spec.loader.exec_module(pub)
+    snap = read_sdk(LiveSDK(), live_cfg())
+    with pytest.raises(ValueError):
+        pub.prepare({'generated_at': utcnow().isoformat(), 'account': snap['account'], 'positions': snap['positions']},
+                    expected_login=DEMO_LOGIN)
+
+
 def test_disabled_mt5_never_starts_worker():
     from astraljet.dashboard.collectors import mt5 as m
     run = lambda *a, **k: pytest.fail('uruchomiono proces odczytu MT5')
