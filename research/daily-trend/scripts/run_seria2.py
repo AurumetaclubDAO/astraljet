@@ -1,0 +1,273 @@
+"""Silnik serii 2 (H4, H5): widok rachunku w lotach.
+
+Reguły, koszty i kryteria: `research/daily-trend/SPEC_SERIA2.md`. Do akceptacji reguł przez Karola
+silnik działa wyłącznie na danych sztucznych w testach (`tests/unit/test_seria2_engine.py`).
+Tylko obliczenia: brak połączenia z brokerem, brak zleceń, brak odczytu plików z danymi rynkowymi.
+"""
+from __future__ import annotations
+
+import statistics
+from dataclasses import dataclass, field
+from datetime import date
+from decimal import Decimal
+
+from astraljet.lab.position_sizing import SizingLimits, size_positions
+from astraljet.workspace.instruments import InstrumentSpec
+
+from run_h2_h3 import MAX_DD, MIN_POSITIVE, MIN_SHARPE, OOS_START, segment  # statystyki i progi jak w serii 1
+
+IN_SAMPLE_END = '2024-12-31'
+MAIN = (252, 60)       # L: świece do porównania ceny, V: świece do zmienności
+NEIGHBOURS = [(lookback, window) for lookback in (202, 252, 302) for window in (48, 60, 72)
+              if (lookback, window) != MAIN]
+CRITERIA = (
+    '1. Wynik po kosztach stresowych dodatni',
+    f'2. Sharpe po kosztach bazowych >= {MIN_SHARPE}',
+    '3. Zysk do obsunięcia lepszy niż punkt odniesienia',
+    f'4. Największe obsunięcie <= {MAX_DD:.0%}',
+    f'5. Dodatnie kwartały >= {MIN_POSITIVE:.0%}',
+    '6. Wszyscy sąsiedzi dodatni',
+)
+MAX_GAP_DAYS = 10      # dłuższa przerwa w świecach zaczyna ciągłą historię od nowa
+MIN_HISTORY = 320      # tyle świec ciągłej historii, żeby rynek brał udział w decyzji
+MIN_MARKETS = 6        # tylu uczestników, żeby zapadła decyzja
+MARKET_CAP = 0.5       # limit jednego rynku jako część kapitału
+STRESS_COMMISSION = 1.5
+SIGNALS = {
+    'H4': lambda now, then: (now > then) - (now < then),
+    'H5': lambda now, then: 1 if now > then else 0,
+    'BENCH': lambda now, then: 1,
+}
+
+
+@dataclass(frozen=True)
+class Costs:
+    """Koszty jednego rynku: spread jako część ceny, prowizja w USD za stronę transakcji, stawki roczne."""
+
+    spread: float = 0.0
+    commission_side: float = 0.0
+    fin_long: float = 0.0
+    fin_short: float = 0.0
+    payout_short: float = 0.0
+    payout_short_stress: float = 0.0
+
+
+@dataclass(frozen=True)
+class Market:
+    name: str
+    dates: list[str]
+    opens: list[float]
+    closes: list[float]
+    spec: InstrumentSpec
+    costs: Costs
+
+
+@dataclass(frozen=True)
+class Trade:
+    date: str
+    market: str
+    change: float
+    volume_after: float
+    price: float
+    spread_cost: float
+    commission: float
+
+
+@dataclass
+class Result:
+    rows: list[tuple[str, float]] = field(default_factory=list)
+    trades: list[Trade] = field(default_factory=list)
+    skipped: list[tuple[str, str, str]] = field(default_factory=list)
+    costs: dict[str, float] = field(default_factory=lambda: {'spread': 0.0, 'commission': 0.0, 'financing': 0.0})
+    ruined: str | None = None  # dzień, w którym kapitał spadł do zera; po nim nie ma już wierszy ani transakcji
+
+
+def _gap(dates: list[str], index: int) -> int:
+    return (date.fromisoformat(dates[index]) - date.fromisoformat(dates[index - 1])).days
+
+
+def continuous_bars(dates: list[str], index: int) -> int:
+    """Liczba świec do `index` włącznie od ostatniej przerwy dłuższej niż MAX_GAP_DAYS."""
+    count = 1
+    while index > 0 and _gap(dates, index) <= MAX_GAP_DAYS:
+        count += 1
+        index -= 1
+    return count
+
+
+def side_rate(costs: Costs, scenario: str) -> float:
+    """Koszt jednej strony transakcji jako część jej wartości, bez prowizji."""
+    return costs.spread + 0.0002 if scenario == 'stress' else costs.spread / 2 + 0.0001
+
+
+def financing_rate(costs: Costs, scenario: str, sign: int) -> float:
+    """Roczny koszt trzymania pozycji: długiej (sign > 0) albo krótkiej razem z dopłatą za wypłaty."""
+    base = costs.fin_long if sign > 0 else costs.fin_short
+    payout = 0.0 if sign > 0 else (costs.payout_short_stress if scenario == 'stress' else costs.payout_short)
+    return (base * 1.5 + 0.01 if scenario == 'stress' else base) + payout
+
+
+def decide_targets(histories: dict[str, list[float]], *, hypothesis: str, gross: float, lookback: int,
+                   vol_window: int) -> dict[str, float]:
+    """Wagi docelowe ze znakiem: sygnał × waga odwrotna do zmienności × ekspozycja, z limitem jednego rynku."""
+    signal = SIGNALS[hypothesis]
+    inverse = {}
+    for name, closes in histories.items():
+        changes = [closes[i] / closes[i - 1] - 1 for i in range(len(closes) - vol_window, len(closes))]
+        deviation = statistics.pstdev(changes)
+        inverse[name] = 1 / deviation if deviation > 0 else 0.0
+    total = sum(inverse.values())
+    if total <= 0:
+        return {name: 0.0 for name in histories}
+    targets = {}
+    for name, closes in histories.items():
+        weight = signal(closes[-1], closes[-1 - lookback]) * inverse[name] / total * gross
+        targets[name] = max(-MARKET_CAP, min(MARKET_CAP, weight))
+    return targets
+
+
+def simulate_account(markets: dict[str, Market], *, hypothesis: str, capital: float = 2500.0, gross: float = 1.0,
+                     lookback: int = 252, vol_window: int = 60, scenario: str = 'base', delay: int = 0) -> Result:
+    """Rachunek w USD: decyzja na koniec miesiąca, wykonanie na otwarciu następnej świecy rynku, wolumeny w lotach."""
+    if gross > 1:
+        raise ValueError('Łączna ekspozycja powyżej 1 oznacza handel z użyciem dźwigni; '
+                         'funkcja wielkości pozycji jej nie dopuszcza.')
+    for market in markets.values():
+        if market.spec.profit_currency != 'USD':
+            raise ValueError(f'{market.name}: rynek notowany poza USD ({market.spec.profit_currency}); '
+                             'silnik liczy na razie tylko rynki w USD.')
+    names = list(markets)
+    position = {n: {d: i for i, d in enumerate(markets[n].dates)} for n in names}
+    last_common = min(m.dates[-1] for m in markets.values())
+    calendar = sorted({d for m in markets.values() for d in m.dates if d <= last_common})
+    specs = {n: markets[n].spec for n in names}
+    contract = {n: float(markets[n].spec.contract_size) for n in names}
+    limits = SizingLimits(max_gross=Decimal(str(gross)), max_per_market=Decimal(str(MARKET_CAP)))
+    commission_factor = STRESS_COMMISSION if scenario == 'stress' else 1.0
+
+    index = {n: -1 for n in names}
+    volume = {n: 0.0 for n in names}
+    targets: dict[str, float] = {}
+    pending: dict[str, int] = {}
+    cash = capital
+    result = Result()
+    previous = None
+    for k, day in enumerate(calendar):
+        has_bar = set()
+        for n in names:
+            i = position[n].get(day)
+            if i is not None:
+                index[n] = i
+                has_bar.add(n)
+        ready = []
+        for n in list(pending):
+            if n in has_bar:
+                if pending[n] > 0:
+                    pending[n] -= 1
+                else:
+                    ready.append(n)
+                    del pending[n]
+        if ready:
+            price = {n: (markets[n].opens[index[n]] if n in has_bar else markets[n].closes[index[n]])
+                     for n in names if index[n] >= 0}
+            equity = cash + sum(volume[n] * contract[n] * price[n] for n in price)
+            if equity <= 0:
+                result.rows.append((day, 0.0))
+                result.ruined = day
+                break
+            sized = size_positions(targets, capital=equity, prices=price, specs=specs, limits=limits)
+            changes = []
+            for n in ready:
+                wanted = sized.get(n)
+                new_volume = float(wanted.volume) if wanted is not None else 0.0
+                if wanted is not None and wanted.skipped:
+                    result.skipped.append((day, n, wanted.reasons[-1]))
+                if abs(new_volume - volume[n]) > 1e-12:
+                    changes.append((new_volume - volume[n], n, new_volume))
+            for change, n, new_volume in sorted(changes):  # sprzedaże przed kupnami
+                unit = contract[n] * price[n]
+                spread_cost = abs(change) * unit * side_rate(markets[n].costs, scenario)
+                commission = markets[n].costs.commission_side * commission_factor
+                cash -= change * unit + spread_cost + commission
+                volume[n] = new_volume
+                result.costs['spread'] += spread_cost
+                result.costs['commission'] += commission
+                result.trades.append(Trade(day, n, change, new_volume, price[n], spread_cost, commission))
+        closing = {n: markets[n].closes[index[n]] for n in names if index[n] >= 0}
+        if previous is not None:
+            held_days = (date.fromisoformat(day) - date.fromisoformat(previous)).days
+            financing = sum(abs(volume[n]) * contract[n] * closing[n]
+                            * financing_rate(markets[n].costs, scenario, 1 if volume[n] > 0 else -1)
+                            for n in closing if volume[n]) * held_days / 365
+            cash -= financing
+            result.costs['financing'] += financing
+        equity = cash + sum(volume[n] * contract[n] * closing[n] for n in closing)
+        if equity <= 0:
+            result.rows.append((day, 0.0))
+            result.ruined = day
+            break
+        result.rows.append((day, equity))
+        previous = day
+        if k + 1 < len(calendar) and calendar[k + 1][:7] != day[:7]:
+            histories = {}
+            for n in names:
+                if index[n] >= 0:
+                    bars = continuous_bars(markets[n].dates, index[n])
+                    if bars >= MIN_HISTORY:
+                        histories[n] = markets[n].closes[index[n] + 1 - bars:index[n] + 1]
+            if len(histories) >= MIN_MARKETS:
+                decided = decide_targets(histories, hypothesis=hypothesis, gross=gross, lookback=lookback,
+                                         vol_window=vol_window)
+                targets = {n: decided.get(n, 0.0) for n in names if index[n] >= 0}
+                for n in targets:
+                    pending[n] = delay
+    return result
+
+
+def run_variant(markets: dict[str, Market], *, hypothesis: str, capital: float, gross: float, lookback: int,
+                vol_window: int, scenario: str, delay: int, label: str) -> dict:
+    result = simulate_account(markets, hypothesis=hypothesis, capital=capital, gross=gross, lookback=lookback,
+                              vol_window=vol_window, scenario=scenario, delay=delay)
+    first = result.trades[0].date if result.trades else None
+    return {'label': label, 'params': [lookback, vol_window], 'scenario': scenario, 'delay': delay,
+            'trades': len(result.trades), 'skipped': len(result.skipped), 'costs': dict(result.costs),
+            'first_trade': first, 'ruined': result.ruined,
+            'in_sample': segment(result.rows, first, IN_SAMPLE_END) if first else None,
+            'out_of_sample': segment(result.rows, OOS_START)}
+
+
+def evaluate(markets: dict[str, Market], *, hypothesis: str, capital: float = 2500.0, gross: float = 1.0) -> dict:
+    """Dwanaście wariantów i sześć kryteriów protokołu w wersji 1, liczonych na widoku rachunku poza strojeniem."""
+    def run(code, lookback, vol_window, scenario, delay, label):
+        return run_variant(markets, hypothesis=code, capital=capital, gross=gross, lookback=lookback,
+                           vol_window=vol_window, scenario=scenario, delay=delay, label=label)
+
+    variants = [run(hypothesis, *MAIN, scenario, delay, f'główny_{scenario}_opóźnienie{delay}')
+                for scenario in ('base', 'stress') for delay in (0, 1)]
+    neighbours = [run(hypothesis, lookback, window, 'base', 0, f'sąsiad_{lookback}_{window}')
+                  for lookback, window in NEIGHBOURS]
+    benchmark = run('BENCH', *MAIN, 'base', 0, 'punkt_odniesienia')
+    outcome = {'hypothesis': hypothesis, 'capital': capital, 'gross': gross, 'checks': [], 'variants': variants,
+               'neighbours': neighbours, 'benchmark': benchmark}
+    wiped = [v for v in (variants[0], variants[2]) if v['ruined']]
+    if wiped:
+        why = f"rachunek wyzerowany {wiped[0]['ruined']} ({wiped[0]['label']})"
+        return {**outcome, 'verdict': 'FAIL',
+                'checks': [{'criterion': name, 'passed': False, 'value': why} for name in CRITERIA]}
+    main, stress, bench = variants[0]['out_of_sample'], variants[2]['out_of_sample'], benchmark['out_of_sample']
+    if len(markets) < MIN_MARKETS or not variants[0]['first_trade'] or None in (main, stress, bench):
+        return {**outcome, 'verdict': 'BRAK DANYCH'}
+    good = sum(1 for n in neighbours if n['out_of_sample'] and n['out_of_sample']['net_return'] > 0)
+    ratio, bench_ratio = main['return_to_drawdown'], bench['return_to_drawdown']
+    values = [
+        (stress['net_return'] > 0, f"{stress['net_return']:+.1%}"),
+        (main['sharpe'] is not None and main['sharpe'] >= MIN_SHARPE,
+         'brak' if main['sharpe'] is None else f"{main['sharpe']:.2f}"),
+        (None not in (ratio, bench_ratio) and ratio > bench_ratio,
+         f'{ratio} wobec {bench_ratio}' if None in (ratio, bench_ratio) else f'{ratio:.2f} wobec {bench_ratio:.2f}'),
+        (main['max_drawdown'] <= MAX_DD, f"{main['max_drawdown']:.1%}"),
+        (main['positive_share'] >= MIN_POSITIVE, f"{main['positive_windows']} z {main['window_count']}"),
+        (good == len(neighbours), f'{good} z {len(neighbours)}'),
+    ]
+    checks = [{'criterion': name, 'passed': bool(ok), 'value': value} for name, (ok, value) in zip(CRITERIA, values)]
+    return {**outcome, 'checks': checks, 'verdict': 'PASS' if all(c['passed'] for c in checks) else 'FAIL'}
