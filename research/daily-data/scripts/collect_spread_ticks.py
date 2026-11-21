@@ -23,7 +23,8 @@ Wynik:
 Użycie:
     $env:MT5_TERMINAL = 'E:\\MT5-DEMO\\Vantage\\terminal64.exe'
     research\\scalp-smc\\.venv\\Scripts\\python.exe research\\daily-data\\scripts\\collect_spread_ticks.py [--algo-trading-dozwolone]
-    python research/daily-data/scripts/collect_spread_ticks.py --selftest   (bez terminala)
+    research\\scalp-smc\\.venv\\Scripts\\python.exe research\\daily-data\\scripts\\collect_spread_ticks.py --selftest
+    (bez terminala; także selftest wymaga numpy i pandas, więc działa w research\\scalp-smc\\.venv, nie w głównym .venv)
 """
 from __future__ import annotations
 
