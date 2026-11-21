@@ -1,6 +1,6 @@
 # Seria 2 (H4 i H5) — reguły zapisane przed zobaczeniem danych
 
-Data zapisu: 20.11.2026. Autor: Claude (koordynator). **Status: PROJEKT. Czeka na akceptację Karola; do tego czasu żaden test serii 2 nie rusza.**
+Data zapisu: 20.11.2026. Autor: Claude (koordynator). **Status: ZAAKCEPTOWANE przez Karola 21.11.2026, przed pierwszym testem serii 2.** Pytanie: „Akceptujesz reguły serii 2 i uruchomienie testu bez dźwigni (G = 1)?". Odpowiedź Karola: „Tak, uruchom test". Od tej chwili reguł, progów i kosztów serii 2 nie zmieniamy; poprawiona wersja to nowa hipoteza z nowym wpisem w rejestrze prób.
 
 Zmiana 21.11.2026, przed jakimkolwiek testem: wpisana prowizja od CFD na ETF-y (punkty 5 i 8), opis wypłat według materiału brokera i ograniczenie danych o spreadzie ETF-ów (punkt 8). Tego samego dnia: spread w rachunku kosztów z pomiaru na tickach (punkt 5). Reguły doboru, hipotezy i kryteria bez zmian.
 
@@ -118,7 +118,7 @@ Okres 2025–2026 był już oglądany 36 razy na innych hipotezach. PASS dopuszc
 
 | Czego brakuje | Kto ustala | Co się dzieje bez tego |
 |---|---|---|
-| G: największa łączna ekspozycja (bez dźwigni albo z dźwignią do limitu) | Karol | Test nie rusza |
+| G: największa łączna ekspozycja (bez dźwigni albo z dźwignią do limitu) | Karol, 21.11.2026: G = 1, bez dźwigni | Ustalone |
 | Prowizja od CFD na ETF-y | ustalona 21.11.2026 (punkt 5) z publicznej tabeli brokera; do potwierdzenia na pierwszej rzeczywistej transakcji | Już nie blokuje testu; raport podaje ją jako założenie |
 | Wypłaty na CFD: czy i jak broker koryguje pozycje długie i krótkie | materiał brokera z 20.11.2026: długa strona dostaje korektę, krótka jest obciążana; przy ETF-ach zależy od funduszu; nie podano, czy brutto, czy po podatku | Zostaje szacunek z punktu 5, opisany w raporcie jako ograniczenie |
 | Spread ETF-ów: w świecach D1 broker zapisuje zero | uzupełnione 21.11.2026 pomiarem z historii ticków dla 17 symboli (punkt 5) | Już nie blokuje; ograniczenie: pomiar obejmuje 30 dni, nie całą historię |
