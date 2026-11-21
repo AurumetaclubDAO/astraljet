@@ -3,7 +3,7 @@
 Każdy uruchomiony wariant każdej hipotezy, także nieudany. Plik tworzy `research/tools/rejestr_prob.py`
 z plików wyników. Nie edytuj go ręcznie. Zasady: `docs/research/PROTOKOL_WALIDACJI.md`.
 
-Uruchomionych wariantów łącznie: 36. Im więcej prób, tym większa szansa, że dobry wynik jest
+Uruchomionych wariantów łącznie: 60. Im więcej prób, tym większa szansa, że dobry wynik jest
 przypadkiem, dlatego ta liczba stoi na górze.
 
 ## Hipotezy
@@ -13,6 +13,8 @@ przypadkiem, dlatego ta liczba stoi na górze.
 | H1 | tygodniowy model BTC/ETH z filtrem reżimu | FAIL | 1 z 6 | 12 | 2026-11-17 | 5012ca5fa526 |
 | H2 | podążanie za trendem | FAIL | 4 z 6 | 12 | 2026-11-18 | w pliku wyniku |
 | H3 | rotacja momentum | FAIL | 1 z 6 | 12 | 2026-11-18 | w pliku wyniku |
+| H4 | trend w obie strony, koszyk CFD w lotach | FAIL | 1 z 6 | 12 | 2026-11-21 | 11 plików, w pliku wyniku |
+| H5 | trend tylko długi, koszyk CFD w lotach | FAIL | 1 z 6 | 12 | 2026-11-21 | 11 plików, w pliku wyniku |
 
 ## Warianty
 
@@ -56,6 +58,30 @@ Liczby dotyczą próby poza strojeniem (od 01.01.2025).
 | H3 | sąsiad_151_2 | sąsiad | 151, 2 | bazowy | 0 | -5.0% | 30.9% | 0.00 |
 | H3 | sąsiad_151_3 | sąsiad | 151, 3 | bazowy | 0 | +10.1% | 22.1% | 0.37 |
 | H3 | sąsiad_151_4 | sąsiad | 151, 4 | bazowy | 0 | +4.3% | 15.4% | 0.22 |
+| H4 | główny_base_opóźnienie0 | główny | 252, 60 | bazowy | 0 | -10.6% | 13.0% | -0.59 |
+| H4 | główny_base_opóźnienie1 | główny | 252, 60 | bazowy | 1 | -8.7% | 10.6% | -0.49 |
+| H4 | główny_stress_opóźnienie0 | główny | 252, 60 | stresowy | 0 | -29.0% | 29.0% | -1.60 |
+| H4 | główny_stress_opóźnienie1 | główny | 252, 60 | stresowy | 1 | -29.2% | 29.2% | -1.81 |
+| H4 | sąsiad_202_48 | sąsiad | 202, 48 | bazowy | 0 | -22.9% | 22.9% | -1.38 |
+| H4 | sąsiad_202_60 | sąsiad | 202, 60 | bazowy | 0 | -21.7% | 21.7% | -1.32 |
+| H4 | sąsiad_202_72 | sąsiad | 202, 72 | bazowy | 0 | -21.0% | 21.0% | -1.25 |
+| H4 | sąsiad_252_48 | sąsiad | 252, 48 | bazowy | 0 | -13.7% | 16.2% | -0.75 |
+| H4 | sąsiad_252_72 | sąsiad | 252, 72 | bazowy | 0 | -10.6% | 13.0% | -0.59 |
+| H4 | sąsiad_302_48 | sąsiad | 302, 48 | bazowy | 0 | -20.8% | 21.2% | -1.07 |
+| H4 | sąsiad_302_60 | sąsiad | 302, 60 | bazowy | 0 | -14.7% | 17.7% | -0.70 |
+| H4 | sąsiad_302_72 | sąsiad | 302, 72 | bazowy | 0 | -15.7% | 17.9% | -0.74 |
+| H5 | główny_base_opóźnienie0 | główny | 252, 60 | bazowy | 0 | -6.5% | 10.7% | -0.32 |
+| H5 | główny_base_opóźnienie1 | główny | 252, 60 | bazowy | 1 | -3.4% | 10.4% | -0.15 |
+| H5 | główny_stress_opóźnienie0 | główny | 252, 60 | stresowy | 0 | -17.8% | 19.0% | -0.98 |
+| H5 | główny_stress_opóźnienie1 | główny | 252, 60 | stresowy | 1 | -16.4% | 17.1% | -0.95 |
+| H5 | sąsiad_202_48 | sąsiad | 202, 48 | bazowy | 0 | -14.5% | 15.1% | -0.79 |
+| H5 | sąsiad_202_60 | sąsiad | 202, 60 | bazowy | 0 | -12.4% | 13.5% | -0.66 |
+| H5 | sąsiad_202_72 | sąsiad | 202, 72 | bazowy | 0 | -12.0% | 14.1% | -0.62 |
+| H5 | sąsiad_252_48 | sąsiad | 252, 48 | bazowy | 0 | -10.3% | 12.3% | -0.54 |
+| H5 | sąsiad_252_72 | sąsiad | 252, 72 | bazowy | 0 | -7.2% | 10.9% | -0.35 |
+| H5 | sąsiad_302_48 | sąsiad | 302, 48 | bazowy | 0 | -12.7% | 14.6% | -0.58 |
+| H5 | sąsiad_302_60 | sąsiad | 302, 60 | bazowy | 0 | -9.7% | 15.8% | -0.43 |
+| H5 | sąsiad_302_72 | sąsiad | 302, 72 | bazowy | 0 | -7.7% | 15.4% | -0.32 |
 
 ## Przebiegi diagnostyczne
 
