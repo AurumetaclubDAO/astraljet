@@ -15,15 +15,18 @@ Przebieg (zatrzymanie na pierwszym nieoczekiwanym wyniku, bez pętli ponowień):
   2. Kupno najmniejszego lota (1. zlecenie).
   3. Ta sama intencja drugi raz: odmowa (nowy klucz) albo DUPLICATE (ten sam klucz), bez wysyłania.
   4. Odczyt pozycji po tickecie z wyniku order_send i magic.
-  5. Zamknięcie: sprzedaż z position=<ticket> (rachunek hedge) — 2. zlecenie.
+  5. Zamknięcie: sprzedaż z position=<ticket> (rachunek hedge) - 2. zlecenie.
   6. Uzgodnienie: brak pozycji o tym tickecie i brak jakiejkolwiek pozycji z magic próby.
   7. Przerwane uzgodnienie: symulowany błąd połączenia przy order_send (nic nie idzie do brokera)
      zostawia stan uncertain; nowe zlecenie jest blokowane; uzgodnienie stwierdza brak deala.
 Baza próby (trwała, z wyłącznikiem awaryjnym): .runtime/demo-probe/state/
 Raport bez numeru rachunku, salda i serwera: .runtime/demo-probe/<czas>/RAPORT_PROBY.md
 
-Wykrycie rachunku innego niż DEMO: rozłączenie i trwały wyłącznik awaryjny; kolejne uruchomienia
-odmawiają, dopóki Karol ręcznie nie usunie katalogu .runtime/demo-probe/state/.
+Wykrycie rachunku innego niż DEMO: rozłączenie, wyłącznik awaryjny w bazie próby i trwały znacznik
+.runtime/demo-probe/STOP_RACHUNEK_INNY_NIZ_DEMO.txt. Dopóki znacznik istnieje, skrypt odmawia jeszcze przed
+połączeniem z terminalem; zdejmuje go tylko Karol, ręcznie (wraz z katalogiem state/).
+Wszystkie odczyty skryptu idą przez twardą listę wywołań adaptera; pozycje i historia tylko po sprawdzeniu
+rachunku.
 
 Użycie (Algo Trading w terminalu DEMO włączone, terminal już działa):
     $env:MT5_TERMINAL = 'C:\\Program Files\\Vantage Markets MT5 Terminal\\terminal64.exe'
@@ -72,6 +75,17 @@ LABEL = "DEMO-PROJEKT"
 ENV, KILL_ENV = "demo-probe", "demo-probe-kill"
 MAX_PROBE_NOTIONAL = Decimal("200")  # górna granica wartości jednej pozycji próby (USD)
 SEND_FLAG = "--wyslij-na-demo"
+# Trwały znacznik po wykryciu rachunku innego niż DEMO; dopóki istnieje, skrypt odmawia przed initialize().
+LIVE_MARKER = PROBE_DIR / "STOP_RACHUNEK_INNY_NIZ_DEMO.txt"
+
+
+def write_live_marker(path: Path | None, stage: str) -> None:
+    if path is None:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"{datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC: terminal byl zalogowany na rachunek inny niz "
+                    f"DEMO ({stage}). Proba zablokowana. Usun ten plik recznie (tylko Karol) po sprawdzeniu terminala.\n",
+                    encoding="utf-8")
 
 
 class ProbeStop(Exception):
@@ -87,7 +101,10 @@ class Report:
     def step(self, name: str, result: str) -> None:
         stamp = datetime.now(timezone.utc).strftime("%H:%M:%S.%f")[:-3]
         self.lines.append(f"| {stamp} | {name} | {result} |")
-        print(f"{stamp} UTC  {name}: {result}", flush=True)
+        try:  # błąd wydruku (strona kodowa konsoli) nie może przerwać próby
+            print(f"{stamp} UTC  {name}: {result}", flush=True)
+        except Exception:  # noqa: BLE001
+            pass
 
 
 class CountingSDK:
@@ -174,7 +191,8 @@ def build_mandate(env_id: str, now: datetime, limits: dict, code_hash: str):
 # ---------- próba ----------
 
 def run_probe(sdk, rule: DemoAccountRule, state_dir: Path, *, send: bool = False,
-              now_fn=lambda: datetime.now(timezone.utc), report: Report | None = None) -> Report:
+              now_fn=lambda: datetime.now(timezone.utc), report: Report | None = None,
+              live_marker: Path | None = None) -> Report:
     report = report or Report()
     counting = CountingSDK(sdk)
     db = Database.from_state_dir(state_dir)
@@ -198,8 +216,11 @@ def run_probe(sdk, rule: DemoAccountRule, state_dir: Path, *, send: bool = False
             return exc.blocker
         return "BRAK ODMOWY"
 
-    def own_positions():
-        return [p for p in (counting.positions_get() or ()) if int(p.magic) == PROBE_MAGIC]
+    ro = adapter.sdk  # własne odczyty skryptu także przez twardą listę wywołań (OrderSDK)
+
+    def own_positions(stage: str):
+        adapter.require_demo(ENV, "probe-worker", stage)  # rachunek przed każdym odczytem pozycji
+        return [p for p in (ro.positions_get() or ()) if int(p.magic) == PROBE_MAGIC]
 
     # 0. czysty stan
     with db.connect() as connection:
@@ -207,30 +228,32 @@ def run_probe(sdk, rule: DemoAccountRule, state_dir: Path, *, send: bool = False
         unfinished = connection.execute("SELECT COUNT(*) AS n FROM execution_intents WHERE environment_id = ? "
                                         "AND state = 'uncertain'", (ENV,)).fetchone()["n"]
     expect("0. wyłącznik awaryjny próby", not (kill and kill["active"]),
-           "aktywny — zdejmuje go tylko Karol (usuń .runtime/demo-probe/state po sprawdzeniu)" if kill and kill["active"]
+           "aktywny - zdejmuje go tylko Karol (usuń .runtime/demo-probe/state po sprawdzeniu)" if kill and kill["active"]
            else "nieaktywny")
     expect("0. niedokończone intencje w bazie próby", unfinished == 0, str(unfinished))
     problem = adapter._account_problem()
     if problem and problem[2]:  # rachunek inny niż DEMO: rozłączenie i trwały wyłącznik próby
+        write_live_marker(live_marker, "krok 0")
         try:
-            counting.shutdown()
+            ro.shutdown()
         finally:
             guard.activate_kill_switch(ENV, reason="Rachunek inny niż DEMO wykryty przy starcie próby.",
                                        idempotency_key=f"probe-not-demo-{run_id}", now=now_fn())
-        expect("0. rachunek DEMO", False, "terminal nie jest na rachunku DEMO — rozłączono, wyłącznik awaryjny włączony")
+        expect("0. rachunek DEMO", False, "terminal nie jest na rachunku DEMO - rozłączono, wyłącznik awaryjny włączony")
     health = adapter.health(type("M", (), {"environment": ExecutionEnvironment.BROKER_DEMO, "account_id": LABEL})())
     expect("0. rachunek DEMO i Algo Trading", health.state is ExecutionResultState.ACCEPTED, health.message)
-    info, tick = counting.symbol_info(SYMBOL), counting.symbol_info_tick(SYMBOL)
+    info, tick = ro.symbol_info(SYMBOL), ro.symbol_info_tick(SYMBOL)
     expect("0. symbol w Market Watch", info is not None and bool(info.visible) and tick is not None,
            "dostępny" if info is not None and info.visible else f"Dodaj {SYMBOL} ręcznie do Market Watch konta DEMO")
-    leftover = own_positions()
+    leftover = own_positions("krok 0: pozycje z magic próby")
     expect("0. pozycje z magic próby", not leftover, str(len(leftover)))
     qty = Decimal(str(info.volume_min)) * Decimal(str(info.trade_contract_size))
     notional = qty * Decimal(str(tick.ask))
     expect("0. najmniejsza pozycja", notional <= MAX_PROBE_NOTIONAL,
-           f"{qty.normalize()} {SYMBOL} (lot {info.volume_min}) ≈ {notional:.2f} USD; spread {tick.ask - tick.bid:.2f}")
-    existing = sum((Decimal(str(p.volume)) * Decimal(str(counting.symbol_info(p.symbol).trade_contract_size))
-                    * Decimal(str(p.price_current)) for p in (counting.positions_get() or ())), Decimal("0"))
+           f"{qty.normalize()} {SYMBOL} (lot {info.volume_min}) ~ {notional:.2f} USD; spread {tick.ask - tick.bid:.2f}")
+    adapter.require_demo(ENV, "probe-worker", "krok 0: wycena pozycji")
+    existing = sum((Decimal(str(p.volume)) * Decimal(str(ro.symbol_info(p.symbol).trade_contract_size))
+                    * Decimal(str(p.price_current)) for p in (ro.positions_get() or ())), Decimal("0"))
     cap = (notional * Decimal("1.5")).quantize(Decimal("0.01"))
     limits = {"max_notional": str(cap), "max_position_quantity": str(qty),
               "max_gross_exposure": str((existing + cap).quantize(Decimal("0.01")))}
@@ -247,7 +270,7 @@ def run_probe(sdk, rule: DemoAccountRule, state_dir: Path, *, send: bool = False
                              worker_id="probe-worker", lease_id=lease_id, data_observed_at=iso(now_fn()))
 
     def intent(intent_id, side="buy", quantity=qty, signal=None):
-        p = Decimal(str(counting.symbol_info_tick(SYMBOL).ask))
+        p = Decimal(str(ro.symbol_info_tick(SYMBOL).ask))
         return OrderIntent(intent_id=intent_id, instrument=SYMBOL, side=side, quantity=quantity, reference_price=p,
                            signal_id=signal or f"SIGNAL-{intent_id}")
 
@@ -292,9 +315,14 @@ def run_probe(sdk, rule: DemoAccountRule, state_dir: Path, *, send: bool = False
 
     # 4. pozycja po tickecie z wyniku order_send (pierwszy klucz) i magic
     ticket = report.open_ticket
-    held = [p for p in (counting.positions_get(ticket=ticket) or ()) if int(p.magic) == PROBE_MAGIC]
-    expect("4. pozycja w terminalu", len(held) == 1 and Decimal(str(held[0].volume)) == Decimal(str(info.volume_min)),
-           f"ticket {ticket}: {len(held)} pozycja, wolumen {held[0].volume if held else '—'}")
+    adapter.ensure_demo(ctx(), "krok 4: odczyt pozycji")
+    held = [p for p in (ro.positions_get(ticket=ticket) or ()) if int(p.magic) == PROBE_MAGIC]
+    all_own = own_positions("krok 4: pozycje z magic próby")
+    ok = (ticket is not None and len(held) == 1 and int(held[0].ticket) == int(ticket) and len(all_own) == 1
+          and Decimal(str(held[0].volume)) == Decimal(str(info.volume_min)))
+    expect("4. pozycja w terminalu", ok,
+           f"ticket z wyniku {ticket}: {len(held)} pozycja, ticket pozycji {held[0].ticket if held else '-'}, "
+           f"wolumen {held[0].volume if held else '-'}; pozycje z magic próby: {len(all_own)}")
 
     # 5. zamknięcie z position=<ticket> (rachunek hedge)
     close_key = f"close-{run_id}"
@@ -308,8 +336,9 @@ def run_probe(sdk, rule: DemoAccountRule, state_dir: Path, *, send: bool = False
            f"różnica {_diff(resp)}; {ms:.0f} ms")
 
     # 6. uzgodnienie
-    same = counting.positions_get(ticket=ticket) or ()
-    left = own_positions()
+    adapter.ensure_demo(ctx(), "krok 6: uzgodnienie")
+    same = ro.positions_get(ticket=ticket) or ()
+    left = own_positions("krok 6: pozycje z magic próby")
     if not same and not left:
         report.open_ticket = None
     expect("6. uzgodnienie z terminalem", not same and not left,
@@ -335,7 +364,7 @@ def _diff(resp: dict) -> str:
     try:
         return f"{float(resp['fill_price']) - float(resp['requested_price']):+.2f}"
     except (KeyError, TypeError, ValueError):
-        return "—"
+        return "-"
 
 
 def write_report(report: Report, path: Path, error: str | None, send: bool) -> None:
@@ -344,7 +373,7 @@ def write_report(report: Report, path: Path, error: str | None, send: bool) -> N
             + (f" {SEND_FLAG}." if send else " (bez brokera)."),
             "- Rachunek: DEMO (numer i serwer sprawdzone z lokalnym plikiem; nie są tu zapisane).",
             f"- Wysłane zlecenia: {report.sent}.",
-            f"- Wynik: {'ZATRZYMANO — ' + error if error else 'wszystkie kroki zgodnie z oczekiwaniem'}."]
+            f"- Wynik: {'ZATRZYMANO - ' + error if error else 'wszystkie kroki zgodnie z oczekiwaniem'}."]
     if report.open_ticket:
         head.append(f"- **UWAGA: na koncie DEMO została otwarta pozycja próby (ticket {report.open_ticket}, "
                     f"magic {PROBE_MAGIC}). Skrypt nie próbuje ponownie: zamknij ją ręcznie w terminalu.**")
@@ -357,10 +386,16 @@ def main() -> int:
     ap.add_argument(SEND_FLAG, dest="send", action="store_true",
                     help="wyślij dwa zlecenia na konto DEMO (bez flagi: tylko część bez brokera)")
     args = ap.parse_args()
+    try:
+        sys.stdout.reconfigure(errors="replace")
+    except Exception:  # noqa: BLE001
+        pass
     out_dir = PROBE_DIR / datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     out_dir.mkdir(parents=True, exist_ok=True)
     report, error, sdk = Report(), None, None
     try:
+        if LIVE_MARKER.exists():
+            raise ProbeStop(f"Wcześniej wykryto rachunek inny niż DEMO: {LIVE_MARKER}. Zdejmuje go tylko Karol, ręcznie.")
         rule = load_rule()
         problem = collector_problem(datetime.now(), *collector_status())
         if problem:
@@ -371,8 +406,12 @@ def main() -> int:
         sdk = sdk_module
         if not sdk.initialize(path=term):
             raise ProbeStop("initialize() nie powiodło się.")
-        run_probe(sdk, rule, STATE_DIR, send=args.send, report=report)
-    except (ProbeStop, DomainBlockedError) as exc:
+        run_probe(sdk, rule, STATE_DIR, send=args.send, report=report, live_marker=LIVE_MARKER)
+    except DomainBlockedError as exc:
+        error = str(exc)
+        if exc.blocker == "not_demo_account":
+            write_live_marker(LIVE_MARKER, "w trakcie próby")
+    except ProbeStop as exc:
         error = str(exc)
     except Exception as exc:  # noqa: BLE001
         error = f"{type(exc).__name__}: {exc}"

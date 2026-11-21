@@ -15,6 +15,12 @@ Blokady:
 - duplikat klucza, sygnału albo intencji nie wysyła zlecenia;
 - brak pętli ponowień: jedno order_send na intencję.
 Numer rachunku, saldo i serwer nie trafiają do zdarzeń ani wyników.
+
+Bramka rachunku stoi także przed każdym odczytem pozycji i historii (reconcile, positions).
+
+Znane ograniczenie uzgodnienia: bez wyniku order_send intencję rozpoznajemy po komentarzu, który broker
+może skrócić lub nadpisać. Dlatego deal z magic adaptera, którego nie da się przypisać do żadnej znanej
+intencji, zostawia wynik w stanie uncertain (do ręcznego sprawdzenia), a nie rejected.
 """
 from __future__ import annotations
 
@@ -161,6 +167,10 @@ class MT5DemoAdapter:
         return None
 
     def ensure_demo(self, context: FrozenContext, stage: str) -> None:
+        self.require_demo(context.environment_id, context.worker_id, stage)
+
+    def require_demo(self, environment_id: str, actor: str, stage: str) -> None:
+        """Bramka rachunku przed każdym zleceniem ORAZ przed każdym odczytem pozycji i historii."""
         problem = self._account_problem()
         if problem is None:
             return
@@ -172,14 +182,14 @@ class MT5DemoAdapter:
             except Exception:  # noqa: BLE001 - rozłączenie nie może zablokować zapisu wyłącznika
                 pass
             self.guard.activate_kill_switch(
-                context.environment_id,
+                environment_id,
                 reason=f"Rachunek inny niż DEMO wykryty ({stage}).",
-                idempotency_key=f"mt5-demo-not-demo:{context.environment_id}",
+                idempotency_key=f"mt5-demo-not-demo:{environment_id}",
                 now=datetime.now(timezone.utc),
             )
         raise self.guard.deny_execution(
             f"{message} Etap: {stage}.", code, "Zaloguj terminal na wskazany rachunek DEMO; nie wysyłaj zlecenia.",
-            environment_id=context.environment_id, actor=context.worker_id,
+            environment_id=environment_id, actor=actor,
         )
 
     def health(self, mandate: object) -> Health:
@@ -438,6 +448,7 @@ class MT5DemoAdapter:
             raise ValidationError("Nie znaleziono referencji.")
         comment = _comment(row["intent_id"])
         order_ticket = self.response(row["idempotency_key"]).get("order")
+        self.require_demo(row["environment_id"], "reconciler", "przed odczytem historii")
         deals = self.sdk.history_deals_get(since, now)
         if deals is None:
             return ExecutionReceipt(ExecutionResultState.UNCERTAIN, row["intent_id"], external_reference,
@@ -447,6 +458,15 @@ class MT5DemoAdapter:
             found = [d for d in own if int(getattr(d, "order", 0) or 0) == int(order_ticket)]
         else:  # bez wyniku order_send: komentarz intencji (pomocniczo; broker może go skrócić)
             found = [d for d in own if str(d.comment) == comment]
+        if not found:
+            # Ograniczenie: komentarz może zostać zmieniony przez brokera. Deal z magic adaptera, którego
+            # nie da się przypisać do żadnej znanej intencji, zostawia wynik nierozstrzygnięty.
+            known = self._known_orders()
+            unassigned = [d for d in own if int(getattr(d, "order", 0) or 0) not in known]
+            if unassigned:
+                return ExecutionReceipt(ExecutionResultState.UNCERTAIN, row["intent_id"], external_reference,
+                                        "W historii jest deal z magic wykonawcy bez przypisanej intencji; "
+                                        "stan pozostaje nierozstrzygnięty (sprawdź ręcznie).")
         result = ExecutionResultState.ACCEPTED if found else ExecutionResultState.REJECTED
         stamp = _iso(now)
         with self.database.transaction() as connection:
@@ -463,7 +483,19 @@ class MT5DemoAdapter:
         return ExecutionReceipt(result, row["intent_id"], external_reference,
                                 "Znaleziono deal intencji." if found else "Brak deala intencji: zlecenie nie zostało wykonane.")
 
+    def _known_orders(self) -> set[int]:
+        import json
+        with self.database.connect() as connection:
+            rows = connection.execute("SELECT response_json FROM execution_intents").fetchall()
+        known = set()
+        for row in rows:
+            order = json.loads(row["response_json"] or "{}").get("order")
+            if order:
+                known.add(int(order))
+        return known
+
     def positions(self, environment_id: str) -> PositionSnapshot:
+        self.require_demo(environment_id, "positions-reader", "przed odczytem pozycji")
         rows = self.sdk.positions_get() or []
         own: dict[str, Decimal] = {}
         for p in rows:

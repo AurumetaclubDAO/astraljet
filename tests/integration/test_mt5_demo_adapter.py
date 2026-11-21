@@ -309,3 +309,29 @@ class NoPathToLive(MT5DemoCase):
                        if "mt5_demo" in p.read_text(encoding="utf-8", errors="ignore")
                        and p.name != "mt5_demo.py")
         self.assertEqual(["scripts/demo_order_probe.py"], users)
+
+
+class ReadsNeedDemoAccount(MT5DemoCase):
+    def test_reconcile_on_real_account_does_not_read_history(self) -> None:
+        self.mt5.send_returns_none = True
+        self.submit(self.eth("OPEN-1"))
+        reads = []
+        self.mt5.history_deals_get = lambda a, b: reads.append(1) or ()
+        self.mt5.account = NS(login=999, trade_mode=2, server="Broker-Live")
+        self.assertEqual("not_demo_account", self.blocker(lambda: self.adapter.reconcile(
+            "MT5D-OPEN-1", idempotency_key="reconcile-live-01", now=NOW, since=NOW - timedelta(hours=1))))
+        self.assertEqual([], reads)
+        self.assertEqual([("OPEN-1", "uncertain")], self.intents())
+
+    def test_positions_on_real_account_is_refused(self) -> None:
+        self.mt5.account = NS(login=999, trade_mode=2, server="Broker-Live")
+        self.assertEqual("not_demo_account", self.blocker(lambda: self.adapter.positions(self.environment_id)))
+
+    def test_unassigned_magic_deal_keeps_uncertain(self) -> None:
+        self.mt5.send_returns_none = True
+        self.submit(self.eth("OPEN-1"))
+        self.mt5.deals.append(NS(magic=PROBE_MAGIC, comment="zmieniony", ticket=77, order=77))
+        receipt = self.adapter.reconcile("MT5D-OPEN-1", idempotency_key="reconcile-0004", now=NOW,
+                                         since=NOW - timedelta(hours=1))
+        self.assertIs(receipt.state, ExecutionResultState.UNCERTAIN)
+        self.assertEqual([("OPEN-1", "uncertain")], self.intents())

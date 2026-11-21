@@ -126,3 +126,57 @@ class ProbeStartAndWindow(unittest.TestCase):
         self.assertTrue(probe.collector_problem(now, None, "Running"))
         self.assertIsNone(probe.collector_problem(now, datetime(2026, 11, 21, 9, 6), "Ready"))
         self.assertIsNone(probe.collector_problem(datetime(2026, 11, 21, 2, 30), datetime(2026, 11, 21, 9, 0), "Ready"))
+
+class ProbeMarkerAndOutput(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.dir = Path(self.tmp.name)
+
+    def test_real_account_writes_persistent_marker(self) -> None:
+        marker = self.dir / "STOP.txt"
+        mt5 = FakeMT5()
+        mt5.account = NS(login=999, trade_mode=2, server="Broker-Live")
+        with self.assertRaises(probe.ProbeStop):
+            probe.run_probe(mt5, RULE, self.dir / "state", send=True, live_marker=marker)
+        self.assertTrue(marker.exists())
+        self.assertNotIn("999", marker.read_text(encoding="utf-8"))
+
+    def test_print_failure_does_not_stop_probe(self) -> None:
+        import io
+        import sys
+
+        class Broken(io.StringIO):
+            def write(self, s):
+                raise UnicodeEncodeError("cp852", s, 0, 1, "test")
+
+        saved, sys.stdout = sys.stdout, Broken()
+        try:
+            mt5 = FakeMT5()
+            report = probe.run_probe(mt5, RULE, self.dir / "state", send=True)
+        finally:
+            sys.stdout = saved
+        self.assertEqual(2, len(mt5.sends))
+        self.assertIn("KONIEC", "\n".join(report.lines))
+
+    def test_ticket_mismatch_stops_at_step_4(self) -> None:
+        mt5 = FakeMT5()
+        original = mt5.order_send
+
+        def shifted(request):
+            result = original(request)
+            return NS(retcode=result.retcode, order=result.order + 500, deal=result.deal, price=result.price,
+                      volume=result.volume)
+        mt5.order_send = shifted
+        report = probe.Report()
+        with self.assertRaises(probe.ProbeStop):
+            probe.run_probe(mt5, RULE, self.dir / "state", send=True, report=report)
+        self.assertEqual(1, len(mt5.sends))
+        self.assertIn("4. pozycja w terminalu", report.lines[-1])
+        self.assertIsNotNone(report.open_ticket)
+
+    def test_messages_have_no_characters_outside_cp852(self) -> None:
+        text = (ROOT / "scripts" / "demo_order_probe.py").read_text(encoding="utf-8")
+        code = text.split('"""', 2)[2]  # bez nagłówka
+        for ch in set(code):
+            ch.encode("cp852")
