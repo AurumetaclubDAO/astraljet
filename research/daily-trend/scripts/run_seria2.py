@@ -6,15 +6,35 @@ Tylko obliczenia: brak połączenia z brokerem, brak zleceń, brak odczytu plik�
 """
 from __future__ import annotations
 
+import argparse
+import csv
+import json
 import statistics
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'src'))  # uruchomienie skryptu bez instalacji pakietu
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from astraljet.lab.position_sizing import SizingLimits, size_positions
 from astraljet.workspace.instruments import InstrumentSpec
 
+import seria2_koszyk as koszyk
+import uniwersum_dane as ud
 from run_h2_h3 import MAX_DD, MIN_POSITIVE, MIN_SHARPE, OOS_START, segment  # statystyki i progi jak w serii 1
+
+SPEC_FILE = Path(__file__).resolve().parents[1] / 'SPEC_SERIA2.md'
+ETF_COMMISSION_SIDE = 6.0   # USD za stronę transakcji na CFD na ETF-ie (SPEC_SERIA2.md, punkt 5)
+UNKNOWN_FINANCING = 0.07    # gdy stawki swapu nie da się policzyć
+EQUITY_PAYOUT = (0.03, 0.05)  # dopłata pozycji krótkiej rocznie: bazowa i stresowa
+BOND_PAYOUT = (0.05, 0.07)
+BOND_ETFS = frozenset({'TLT'})
+EQUITY_SYMBOLS = frozenset(
+    symbol for group in ('Akcje USA', 'Akcje poza USA') for _, symbols in koszyk.PRIORITY[group] for symbol in symbols
+) | {'GDX', 'XOP'}
 
 IN_SAMPLE_END = '2024-12-31'
 MAIN = (252, 60)       # L: świece do porównania ceny, V: świece do zmienności
@@ -224,6 +244,73 @@ def simulate_account(markets: dict[str, Market], *, hypothesis: str, capital: fl
     return result
 
 
+def short_payout(symbol: str) -> tuple[float, float]:
+    """Szacowana dopłata pozycji krótkiej za wypłaty funduszu albo indeksu: (bazowa, stresowa)."""
+    if symbol in BOND_ETFS:
+        return BOND_PAYOUT
+    if symbol in EQUITY_SYMBOLS and symbol not in koszyk.FUTURES_BASED:
+        return EQUITY_PAYOUT
+    return 0.0, 0.0
+
+
+def market_from_files(folder: Path, symbol: str, *, spread: float | None = None,
+                      fx: dict[str, float] | None = None) -> Market:
+    """Rynek z plików `<SYMBOL>_D1.csv` i `.meta.json`. `spread` z pomiaru na tickach zastępuje pojedynczy odczyt."""
+    meta = json.loads((folder / f'{symbol}_D1.meta.json').read_text(encoding='utf-8'))
+    with (folder / f'{symbol}_D1.csv').open(encoding='utf-8', newline='') as handle:
+        rows = list(csv.DictReader(handle))
+    closes = [float(r['close']) for r in rows]
+    read_spreads = [float(r['spread']) for r in rows if r.get('spread') not in (None, '')]
+    long_cost, short_cost, _ = ud.holding_cost(meta, closes[-1], fx or {'USD': 1.0})
+    payout, payout_stress = short_payout(symbol)
+    if spread is None:
+        spread = ud.spread_rel(meta, closes[-1], read_spreads) or 0.001
+    spec = InstrumentSpec(symbol=symbol, digits=int(meta['digits']), contract_size=Decimal(str(meta['trade_contract_size'])),
+                          profit_currency=meta['currency_profit'], volume_min=Decimal(str(meta['volume_min'])),
+                          volume_max=Decimal(str(meta['volume_max'])), volume_step=Decimal(str(meta['volume_step'])))
+    costs = Costs(
+        spread=spread,
+        commission_side=ETF_COMMISSION_SIDE if str(meta.get('path', '')).startswith('ETF\\') else 0.0,
+        fin_long=UNKNOWN_FINANCING if long_cost is None else max(0.0, long_cost),
+        fin_short=UNKNOWN_FINANCING if short_cost is None else max(0.0, short_cost),
+        payout_short=payout, payout_short_stress=payout_stress)
+    return Market(name=symbol, dates=[r['date'] for r in rows], opens=[float(r['open']) for r in rows],
+                  closes=closes, spec=spec, costs=costs)
+
+
+def load_spreads(report: Path) -> dict[str, float]:
+    """Mediana spreadu jako część ceny z raportu pomiaru na tickach; dla ETF-ów z USA z godzin sesji."""
+    spreads = {}
+    for line in report.read_text(encoding='utf-8').splitlines():
+        cells = [cell.strip() for cell in line.strip().strip('|').split('|')]
+        if len(cells) < 9 or not (cells[0].startswith('`') and cells[0].endswith('`')):
+            continue
+        median = cells[6] if len(cells) >= 15 else cells[5]  # tabela z podziałem na sesję ma 15 kolumn
+        spreads[cells[0].strip('`')] = float(median) / 100
+    return spreads
+
+
+def acceptance_block(spec_text: str) -> str | None:
+    """Powód odmowy uruchomienia na danych rynkowych albo None, gdy reguły są zaakceptowane."""
+    if 'Status: PROJEKT' in spec_text:
+        return ('Reguły serii 2 mają status PROJEKT i czekają na akceptację Karola. '
+                'Do tego czasu silnik nie liczy niczego na danych rynkowych.')
+    return None
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description='Seria 2 (H4, H5) na danych dziennych koszyka.')
+    parser.add_argument('--spec', type=Path, default=SPEC_FILE)
+    parser.add_argument('--dane', type=Path, default=ud.DATA_DIR)
+    args = parser.parse_args(argv)
+    blocked = acceptance_block(args.spec.read_text(encoding='utf-8'))
+    if blocked:
+        print(blocked)
+        return 2
+    print('Reguły zaakceptowane, ale raport z danych rynkowych nie jest jeszcze napisany.')
+    return 3
+
+
 def run_variant(markets: dict[str, Market], *, hypothesis: str, capital: float, gross: float, lookback: int,
                 vol_window: int, scenario: str, delay: int, label: str) -> dict:
     result = simulate_account(markets, hypothesis=hypothesis, capital=capital, gross=gross, lookback=lookback,
@@ -271,3 +358,7 @@ def evaluate(markets: dict[str, Market], *, hypothesis: str, capital: float = 25
     ]
     checks = [{'criterion': name, 'passed': bool(ok), 'value': value} for name, (ok, value) in zip(CRITERIA, values)]
     return {**outcome, 'checks': checks, 'verdict': 'PASS' if all(c['passed'] for c in checks) else 'FAIL'}
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

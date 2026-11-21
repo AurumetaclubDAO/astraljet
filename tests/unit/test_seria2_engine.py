@@ -4,8 +4,10 @@ Reguły: research/daily-trend/SPEC_SERIA2.md. Testy nie czytają danych rynkowyc
 """
 from __future__ import annotations
 
+import json
 import random
 import sys
+import tempfile
 import unittest
 from datetime import date, timedelta
 from decimal import Decimal
@@ -236,6 +238,95 @@ class Evaluation(unittest.TestCase):
         outcome = s2.evaluate(long_basket(), hypothesis='H5')
         self.assertEqual(outcome['benchmark']['label'], 'punkt_odniesienia')
         self.assertEqual(len(outcome['variants']) + len(outcome['neighbours']), 12)
+
+
+def write_symbol(folder: Path, symbol: str, *, path: str, swap=(-6.0, 2.0, 5), bars: int = 5, spread_points: int = 4,
+                 extra: dict | None = None) -> None:
+    rows = ['date,open,high,low,close,tick_volume,spread']
+    for i in range(bars):
+        day = (START + timedelta(days=i)).isoformat()
+        rows.append(f'{day},{100 + i},{101 + i},{99 + i},{100.5 + i},10,0')
+    (folder / f'{symbol}_D1.csv').write_text('\n'.join(rows) + '\n', encoding='utf-8')
+    meta = {'symbol': symbol, 'market': symbol, 'path': path, 'digits': 2, 'point': 0.01, 'trade_contract_size': 1.0,
+            'volume_min': 1.0, 'volume_step': 1.0, 'volume_max': 1000.0, 'currency_profit': 'USD',
+            'swap_long': swap[0], 'swap_short': swap[1], 'swap_mode': swap[2], 'spread_points': spread_points}
+    meta.update(extra or {})
+    (folder / f'{symbol}_D1.meta.json').write_text(json.dumps(meta), encoding='utf-8')
+
+
+class LoadingMarketData(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.folder = Path(self.tmp.name)
+
+    def test_reads_prices_and_lot_specification(self):
+        write_symbol(self.folder, 'IWM', path='ETF\\ETF-C\\IWM')
+        loaded = s2.market_from_files(self.folder, 'IWM')
+        self.assertEqual(loaded.dates[0], '2022-01-01')
+        self.assertEqual((loaded.opens[0], loaded.closes[-1]), (100.0, 104.5))
+        self.assertEqual((loaded.spec.volume_min, loaded.spec.volume_step), (D('1.0'), D('1.0')))
+        self.assertEqual(loaded.spec.profit_currency, 'USD')
+
+    def test_etf_pays_commission_per_side_and_other_folders_do_not(self):
+        write_symbol(self.folder, 'IWM', path='ETF\\ETF-C\\IWM')
+        write_symbol(self.folder, 'ETHUSD', path='Crypto Currency\\Crypto Major\\ETHUSD', swap=(-8.33, 0.0, 5))
+        self.assertEqual(s2.market_from_files(self.folder, 'IWM').costs.commission_side, 6.0)
+        self.assertEqual(s2.market_from_files(self.folder, 'ETHUSD').costs.commission_side, 0.0)
+
+    def test_swap_credit_counts_as_zero_cost(self):
+        write_symbol(self.folder, 'IWM', path='ETF\\ETF-C\\IWM', swap=(-6.0, 2.0, 5))
+        costs = s2.market_from_files(self.folder, 'IWM').costs
+        self.assertAlmostEqual(costs.fin_long, 0.06)
+        self.assertEqual(costs.fin_short, 0.0)
+
+    def test_unknown_swap_mode_falls_back_to_seven_percent(self):
+        write_symbol(self.folder, 'ODD', path='Other\\ODD', swap=(-1.0, -1.0, 9))
+        costs = s2.market_from_files(self.folder, 'ODD').costs
+        self.assertEqual((costs.fin_long, costs.fin_short), (0.07, 0.07))
+
+    def test_tick_spread_replaces_single_reading(self):
+        write_symbol(self.folder, 'IWM', path='ETF\\ETF-C\\IWM', spread_points=40)
+        self.assertAlmostEqual(s2.market_from_files(self.folder, 'IWM').costs.spread, 40 * 0.01 / 104.5)
+        self.assertEqual(s2.market_from_files(self.folder, 'IWM', spread=0.000072).costs.spread, 0.000072)
+
+    def test_short_side_pays_estimated_payouts_on_equity_and_bond_etfs(self):
+        write_symbol(self.folder, 'IWM', path='ETF\\ETF-C\\IWM')
+        write_symbol(self.folder, 'TLT', path='ETF\\ETF-R\\TLT')
+        write_symbol(self.folder, 'USO', path='ETF\\ETF-C\\USO')
+        equity, bond, oil = (s2.market_from_files(self.folder, n).costs for n in ('IWM', 'TLT', 'USO'))
+        self.assertEqual((equity.payout_short, equity.payout_short_stress), (0.03, 0.05))
+        self.assertEqual((bond.payout_short, bond.payout_short_stress), (0.05, 0.07))
+        self.assertEqual((oil.payout_short, oil.payout_short_stress), (0.0, 0.0))
+
+    def test_spreads_come_from_tick_report_session_median(self):
+        report = self.folder / 'spread.md'
+        report.write_text(
+            '## ETF-y z USA: sesja USA i pozostałe godziny\n\n'
+            '| Symbol | Ticki | Od | Do | Dni | Sesja USA: ticki | mediana | p75 | p95 | ≤ 0 | Poza sesją: ticki |'
+            ' mediana | p75 | p95 | ≤ 0 |\n|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n'
+            '| `IWM` | 360106 | 2026-10-22 | 2026-11-20 | 22 | 360106 | 0.0072 | 0.0106 | 0.0113 | 0.3% | 0 | — | — | — | — |\n'
+            '\n## Pozostałe (całość, bez podziału)\n\n| Symbol | Ticki | Od | Do | Dni | mediana | p75 | p95 | ≤ 0 |\n'
+            '|---|---:|---|---|---:|---:|---:|---:|---:|\n'
+            '| `ETHUSD` | 7700677 | 2026-10-22 | 2026-11-20 | 30 | 0.1178 | 0.1371 | 0.1438 | 0.0% |\n', encoding='utf-8')
+        spreads = s2.load_spreads(report)
+        self.assertAlmostEqual(spreads['IWM'], 0.000072)
+        self.assertAlmostEqual(spreads['ETHUSD'], 0.001178)
+
+
+class AcceptanceGate(unittest.TestCase):
+    def test_draft_rules_block_a_run_on_market_data(self):
+        self.assertIn('akceptac', s2.acceptance_block('**Status: PROJEKT. Czeka na akceptację Karola**'))
+
+    def test_accepted_rules_do_not_block(self):
+        self.assertIsNone(s2.acceptance_block('**Status: ZAAKCEPTOWANE przez Karola 22.11.2026**'))
+
+    def test_main_refuses_before_touching_data_while_rules_are_a_draft(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            spec_file = Path(tmp) / 'SPEC.md'
+            spec_file.write_text('**Status: PROJEKT.**', encoding='utf-8')
+            code = s2.main(['--spec', str(spec_file), '--dane', str(Path(tmp) / 'nie-ma-takiego-folderu')])
+        self.assertEqual(code, 2)
 
 
 if __name__ == '__main__':
