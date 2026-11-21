@@ -1,0 +1,26 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-8.4.2, pluggy-1.6.0 -- D:\Astra Jet\.runtime\dashboard-venv\Scripts\python.exe
+rootdir: D:\Astra Jet\.runtime\dashboard\tq-test
+configfile: ..\..\..\pyproject.toml
+plugins: anyio-4.15.1, asyncio-0.26.0
+asyncio: mode=Mode.STRICT, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 16 items
+
+tests/test_gated_order.py::T::test_allow_sends_with_sl_tp PASSED         [  6%]
+tests/test_gated_order.py::T::test_kill_switch_no_send PASSED            [ 12%]
+tests/test_gated_order.py::T::test_live_no_send PASSED                   [ 18%]
+tests/test_gated_order.py::T::test_lot_sizing PASSED                     [ 25%]
+tests/test_gated_order.py::T::test_missing_sl_no_send PASSED             [ 31%]
+tests/test_gated_order.py::T::test_oversize_no_send PASSED               [ 37%]
+tests/test_risk_gate.py::T::test_daily_loss_blocks PASSED                [ 43%]
+tests/test_risk_gate.py::T::test_kill_switch_blocks PASSED               [ 50%]
+tests/test_risk_gate.py::T::test_ok PASSED                               [ 56%]
+tests/test_risk_gate.py::T::test_position_caps PASSED                    [ 62%]
+tests/test_risk_gate.py::T::test_rejects_live_login PASSED               [ 68%]
+tests/test_risk_gate.py::T::test_rejects_missing_sl PASSED               [ 75%]
+tests/test_risk_gate.py::T::test_rejects_non_demo_server PASSED          [ 81%]
+tests/test_risk_gate.py::T::test_rejects_sleeve_limit PASSED             [ 87%]
+tests/test_risk_gate.py::T::test_rejects_wrong_side_sl PASSED            [ 93%]
+tests/test_risk_gate.py::T::test_unknown_sleeve PASSED                   [100%]
+
+============================= 16 passed in 0.35s ==============================

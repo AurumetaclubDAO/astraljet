@@ -1,0 +1,120 @@
+
+> site-creator-vinext-starter@0.1.0 build
+> node scripts/run-framework.mjs build
+
+
+  vinext build  (Vite 8.0.13)
+
+[1/5] analyze client references...
+[2K
+transforming...✓ 523 modules transformed.
+rendering chunks...
+[PLUGIN_TIMINGS] Your build spent significant time in plugins. Here is a breakdown:
+  - rsc:virtual-client-package (21%)
+  - alias (18%)
+  - vinext:css-data-url (13%)
+  - vinext:og-inline-fetch-assets (8%)
+  - vinext:middleware-server-only (8%)
+See https://rolldown.rs/options/checks#plugintimings for more details.
+
+✓ built in 3.70s
+[2/5] analyze server references...
+[2K
+transforming...✓ 1355 modules transformed.
+rendering chunks...
+[PLUGIN_TIMINGS] Your build spent significant time in plugins. Here is a breakdown:
+  - vinext:og-inline-fetch-assets (18%)
+  - vinext:css-data-url (13%)
+  - alias (11%)
+  - rsc:virtual-client-package (10%)
+  - vinext:middleware-server-only (9%)
+See https://rolldown.rs/options/checks#plugintimings for more details.
+
+✓ built in 8.33s
+[3/5] build rsc environment...
+[2K
+transforming...✓ 520 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 2.35s
+[4/5] build client environment...
+[2K
+transforming...✓ 3213 modules transformed.
+rendering chunks...
+computing gzip size...
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[PLUGIN_TIMINGS] Your build spent significant time in plugins. Here is a breakdown:
+  - vinext:og-inline-fetch-assets (14%)
+  - vinext:middleware-server-only (13%)
+  - rsc:virtual-client-package (11%)
+  - alias (11%)
+  - vinext:css-data-url (9%)
+See https://rolldown.rs/options/checks#plugintimings for more details.
+
+✓ built in 7.17s
+[5/5] build ssr environment...
+[2K
+transforming...✓ 1384 modules transformed.
+rendering chunks...
+computing gzip size...
+[PLUGIN_TIMINGS] Your build spent significant time in plugins. Here is a breakdown:
+  - vinext:og-inline-fetch-assets (22%)
+  - vinext:css-data-url (11%)
+  - alias (11%)
+  - rsc:virtual-client-package (10%)
+  - vinext:middleware-server-only (8%)
+See https://rolldown.rs/options/checks#plugintimings for more details.
+
+✓ built in 3.63s
+[0m
+  Route (app)
+  ┌ ? /                                
+  ├ λ /api/analysis                    
+  ├ λ /api/astra/ai                    
+  ├ λ /api/astra/budget                
+  ├ λ /api/astra/chat                  
+  ├ λ /api/astra/command               
+  ├ λ /api/astra/devices               
+  ├ λ /api/astra/discovery             
+  ├ λ /api/astra/extraction-diagnostics
+  ├ λ /api/astra/lineage               
+  ├ λ /api/astra/materials             
+  ├ λ /api/astra/registry-sync         
+  ├ λ /api/astra/status                
+  ├ λ /api/astra/worker                
+  ├ λ /api/contest                     
+  ├ λ /api/datasets                    
+  ├ λ /api/journal                     
+  ├ λ /api/mt5/telemetry               
+  ├ λ /api/observatory/ingest          
+  ├ λ /api/observatory/summary         
+  ├ λ /api/openterminal/:path+         
+  ├ λ /api/radar                       
+  ├ λ /api/radar/brief                 
+  ├ λ /api/research/alerts             
+  ├ λ /api/research/charts             
+  ├ λ /api/research/paper              
+  ├ λ /api/research/runs               
+  ├ λ /api/research/sources            
+  ├ λ /api/research/x                  
+  ├ ? /command                         
+  ├ ƒ /command/:module                 
+  ├ ƒ /command/registry-connection     
+  ├ ? /contest                         
+  ├ λ /observatory                     
+  ├ ƒ /openterminal                    
+  ├ ƒ /research                        
+  └ ƒ /research/lineage                
+
+  λ API  ƒ Dynamic  ? Unknown
+
+  ? Some routes could not be classified. vinext currently uses static analysis
+    and cannot detect dynamic API usage (headers(), cookies(), etc.) at build time.
+    Automatic classification will be improved in a future release.
+
+  Build complete. Run `vinext start` to start the production server.
+

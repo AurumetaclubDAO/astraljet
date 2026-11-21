@@ -1,0 +1,24 @@
+refresh_seconds = 45
+# desktop: domyślnie pulpit bieżącego użytkownika (Path.home() / 'Desktop'); nadpisz tu tylko w razie potrzeby.
+# 21.11.2026: Karol zalogował terminal z C:\Program Files na nowe konto DEMO projektu i wybrał je
+# dla panelu. Bramka przy każdym odczycie sprawdza numer (lokalny accounts.toml), tryb DEMO i serwer;
+# ścieżka o niczym nie świadczy. Terminal w E:\MT5-DEMO jest zalogowany na LIVE: zabroniony.
+# Tryb LIVE (saldo i pozycje, bez historii) nadal jest dostępny: account_mode = 'LIVE'.
+account_mode = 'DEMO'
+terminal_path = 'C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe'
+forbidden_terminal_paths = [
+  'E:\MT5-DEMO\Vantage\terminal64.exe',
+]
+server = 'VantageMarkets-Demo'
+mt5_enabled = true
+schedule_enabled = true
+history_days = 30
+
+[freshness]
+mt5 = 90
+schedule = 90
+runner = 1200
+arena = 1200
+funding = 1800
+shadow = 108000
+config = 90

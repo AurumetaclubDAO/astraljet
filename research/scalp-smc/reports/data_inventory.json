@@ -1,0 +1,179 @@
+{
+  "generated_local": "2026-11-16T23:30:21",
+  "server": "VantageMarkets-Live 10",
+  "maxbars": 100000,
+  "symbols": [
+    {
+      "symbol": "ETHUSD",
+      "server_utc_offset_h_now": 2,
+      "ticks": {
+        "files_days": 123,
+        "rows": 22781560,
+        "first_warsaw": "2026-07-17T23:00:00.657000065+02:00",
+        "last_warsaw": "2026-11-16T23:30:23.332999945+01:00",
+        "largest_gaps_s": [
+          {
+            "day": "2026-11-01",
+            "gap_s": 14401.1,
+            "at_warsaw": "2026-11-01T06:59:58.993000031+01:00"
+          },
+          {
+            "day": "2026-10-11",
+            "gap_s": 10800.8,
+            "at_warsaw": "2026-10-11T02:59:59.861999989+02:00"
+          },
+          {
+            "day": "2026-07-25",
+            "gap_s": 1233.0,
+            "at_warsaw": "2026-07-24T23:21:24.217999935+02:00"
+          },
+          {
+            "day": "2026-09-13",
+            "gap_s": 1185.0,
+            "at_warsaw": "2026-09-12T23:00:09.168999910+02:00"
+          },
+          {
+            "day": "2026-10-03",
+            "gap_s": 718.2,
+            "at_warsaw": "2026-10-02T23:30:44.898000002+02:00"
+          }
+        ],
+        "spread_price_median": 2.5,
+        "spread_price_p90": 2.5399999999999636
+      },
+      "m1": {
+        "rows": 103526,
+        "first_warsaw": "2026-09-05T18:44:00+02:00",
+        "last_warsaw": "2026-11-16T23:30:00+01:00",
+        "gaps_over_5min": 4,
+        "gaps_over_1h": 2,
+        "largest_gaps": [
+          {
+            "gap_min": 241,
+            "after_warsaw": "2026-11-01T06:59:00+01:00"
+          },
+          {
+            "gap_min": 181,
+            "after_warsaw": "2026-10-11T02:59:00+02:00"
+          },
+          {
+            "gap_min": 12,
+            "after_warsaw": "2026-10-02T23:30:00+02:00"
+          },
+          {
+            "gap_min": 6,
+            "after_warsaw": "2026-10-02T23:12:00+02:00"
+          },
+          {
+            "gap_min": 4,
+            "after_warsaw": "2026-10-16T23:07:00+02:00"
+          }
+        ]
+      },
+      "candidates": [
+        "ETHUSD"
+      ],
+      "symbol_info": {
+        "digits": 2,
+        "point": 0.01,
+        "spread": 254,
+        "spread_float": true,
+        "trade_contract_size": 1.0,
+        "volume_min": 0.01,
+        "volume_step": 0.01,
+        "trade_tick_value": 0.01,
+        "trade_tick_size": 0.01,
+        "trade_stops_level": 0,
+        "currency_profit": "USD",
+        "path": "Crypto Currency\\Crypto Major\\ETHUSD"
+      }
+    },
+    {
+      "symbol": "XAUUSD+",
+      "server_utc_offset_h_now": 1,
+      "ticks": {
+        "files_days": 86,
+        "rows": 57111898,
+        "first_warsaw": "2026-07-20T00:00:00.592000008+02:00",
+        "last_warsaw": "2026-11-16T22:57:59.826999903+01:00",
+        "largest_gaps_s": [
+          {
+            "day": "2026-10-28",
+            "gap_s": 16.7,
+            "at_warsaw": "2026-10-27T23:26:40.418999910+01:00"
+          },
+          {
+            "day": "2026-07-21",
+            "gap_s": 10.8,
+            "at_warsaw": "2026-07-21T01:36:17.266999959+02:00"
+          },
+          {
+            "day": "2026-09-24",
+            "gap_s": 10.5,
+            "at_warsaw": "2026-09-24T03:48:03.489000082+02:00"
+          },
+          {
+            "day": "2026-07-27",
+            "gap_s": 10.5,
+            "at_warsaw": "2026-07-27T22:50:26.101000071+02:00"
+          },
+          {
+            "day": "2026-11-11",
+            "gap_s": 10.3,
+            "at_warsaw": "2026-11-11T22:28:44.752000093+01:00"
+          }
+        ],
+        "spread_price_median": 0.10999999999967258,
+        "spread_price_p90": 0.12999999999919964
+      },
+      "m1": {
+        "rows": 100001,
+        "first_warsaw": "2026-08-05T07:11:00+02:00",
+        "last_warsaw": "2026-11-16T00:00:00+01:00",
+        "gaps_over_5min": 73,
+        "gaps_over_1h": 73,
+        "largest_gaps": [
+          {
+            "gap_min": 2944,
+            "after_warsaw": "2026-11-06T22:56:00+01:00"
+          },
+          {
+            "gap_min": 2944,
+            "after_warsaw": "2026-10-30T21:56:00+01:00"
+          },
+          {
+            "gap_min": 2944,
+            "after_warsaw": "2026-10-23T22:56:00+02:00"
+          },
+          {
+            "gap_min": 2944,
+            "after_warsaw": "2026-10-16T22:56:00+02:00"
+          },
+          {
+            "gap_min": 2944,
+            "after_warsaw": "2026-10-09T22:56:00+02:00"
+          }
+        ]
+      },
+      "candidates": [
+        "XAUUSD.crp",
+        "XAUUSD+",
+        "XAUUSD247"
+      ],
+      "symbol_info": {
+        "digits": 2,
+        "point": 0.01,
+        "spread": 16,
+        "spread_float": true,
+        "trade_contract_size": 100.0,
+        "volume_min": 0.01,
+        "volume_step": 0.01,
+        "trade_tick_value": 1.0,
+        "trade_tick_size": 0.01,
+        "trade_stops_level": 20,
+        "currency_profit": "USD",
+        "path": "Gold+\\XAUUSD+"
+      }
+    }
+  ]
+}

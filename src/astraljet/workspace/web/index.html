@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>AstralJet · Trade Workspace (SIMULATED)</title><link rel="stylesheet" href="/styles.css"><script src="/app.js" defer></script></head>
+<body>
+<a class="skip" href="#main">Przejdź do przestrzeni roboczej</a>
+<header class="topbar">
+  <div class="brand"><span class="mark">A<span>✦</span></span><span>ASTRAL<span class="brand-light">JET</span><small>TRADE WORKSPACE</small></span></div>
+  <div id="context" class="context" aria-live="polite"></div>
+  <div class="top-actions"><span id="mode" class="mode-pill">SIMULATED</span><button id="theme" type="button">Motyw</button></div>
+</header>
+<div id="banner" class="banner" role="status" hidden></div>
+<main id="main">
+  <section class="sim card" aria-label="Sterowanie symulacją">
+    <span class="eyebrow">SYMULACJA</span>
+    <button data-step="1" type="button">Krok</button><button data-step="10" type="button">10 kroków</button>
+    <button data-drift="60" type="button">Cena +60 pkt</button><button data-drift="-60" type="button">Cena −60 pkt</button>
+    <label><input id="auto" type="checkbox"> auto-krok (2 s)</label>
+    <label>Następne żądanie <select id="script"><option value="">normalnie</option><option value="REJECT">odrzuć</option><option value="PARTIAL">częściowo (50%)</option><option value="TIMEOUT_AFTER_EXECUTION">timeout po wykonaniu</option><option value="TIMEOUT_NOT_RECEIVED">timeout, nie dotarło</option></select></label>
+    <button id="conn" type="button">Rozłącz</button><button id="kill" type="button">Kill switch</button>
+    <span id="clock" class="muted"></span>
+  </section>
+
+  <div class="grid">
+    <section class="card chart-card" id="chart" aria-label="Wykres">
+      <div class="card-heading">
+        <div><label>Symbol <select id="symbol"></select></label> <label>Interwał <select id="timeframe"></select></label></div>
+        <div id="quote" class="muted"></div>
+      </div>
+      <div id="chart-box" class="chart-box"></div>
+      <p class="caption" id="chart-caption"></p>
+    </section>
+
+    <section class="card" id="plan" aria-label="Plan transakcji">
+      <div class="card-heading"><div><span class="eyebrow">DANE PLANOWANE</span><h2>Plan transakcji</h2></div><span class="badge planned">PLAN ≠ WYNIK</span></div>
+      <div class="side-switch" role="group" aria-label="Kierunek"><button type="button" data-side="BUY">BUY / long</button><button type="button" data-side="SELL">SELL / short</button></div>
+      <div class="form-grid">
+        <label>Typ <select id="order_type"><option>MARKET</option><option>LIMIT</option><option>STOP</option></select></label>
+        <label>Wolumen (lot) <input id="volume" inputmode="decimal"></label>
+        <label>Wejście <input id="entry" inputmode="decimal" placeholder="rynek: Ask/Bid"></label>
+        <label>SL <input id="sl" inputmode="decimal" placeholder="brak"></label>
+        <label>TP <input id="tp" inputmode="decimal" placeholder="brak"></label>
+      </div>
+      <button id="apply-plan" type="button">Przelicz</button>
+      <div id="metrics" class="metrics"></div>
+      <ul id="plan-msgs" class="msgs"></ul>
+      <button id="send" class="primary" type="button">Wyślij żądanie (SIMULATED)</button>
+      <p class="caption">Wysłanie jest żądaniem. Wynik pojawi się w „Żądania” i „Pozycje” dopiero po odpowiedzi symulatora.</p>
+    </section>
+  </div>
+
+  <section class="card" id="positions" aria-label="Pozycje i ochrona">
+    <div class="card-heading"><div><span class="eyebrow">DANE POTWIERDZONE (SYMULATOR)</span><h2>Pozycje i ochrona</h2></div></div>
+    <div id="positions-box"></div>
+  </section>
+
+  <div class="grid two">
+    <section class="card" id="triggers" aria-label="Trend Trigger">
+      <div class="card-heading"><div><span class="eyebrow">AUTOMATYKA WEJŚCIA</span><h2>Trend Trigger</h2></div></div>
+      <div class="form-grid">
+        <label>Linia (cena) <input id="t_price" inputmode="decimal"></label>
+        <label>Przecięcie <select id="t_cross"><option value="">wybierz…</option><option value="UP">w górę</option><option value="DOWN">w dół</option></select></label>
+        <label>Cena oceny <select id="t_src"><option>BID</option><option>ASK</option></select></label>
+        <label>Wejście <select id="t_side"><option value="">wybierz…</option><option>BUY</option><option>SELL</option></select></label>
+        <label>Wolumen <input id="t_vol" value="0.01"></label>
+        <label>SL (pkt) <input id="t_sl" placeholder="brak"></label>
+        <label>TP (pkt) <input id="t_tp" placeholder="brak"></label>
+        <label>Ważność (min) <input id="t_exp" placeholder="bez terminu"></label>
+      </div>
+      <button id="t_create" type="button">Utwórz regułę</button>
+      <div id="triggers-box"></div>
+    </section>
+    <section class="card" id="widgets" aria-label="Widgety">
+      <div class="card-heading"><div><span class="eyebrow">STAN RACHUNKU I RYNKU</span><h2>Widgety</h2></div></div>
+      <div id="widgets-box" class="widgets"></div>
+    </section>
+  </div>
+
+  <section class="card" id="requests" aria-label="Żądania">
+    <div class="card-heading"><div><span class="eyebrow">DANE ŻĄDANE</span><h2>Żądania i uzgodnienia</h2></div></div>
+    <div id="requests-box" class="table-scroll"></div>
+  </section>
+
+  <section class="card" id="review" aria-label="Review Center">
+    <div class="card-heading"><div><span class="eyebrow">HISTORIA</span><h2>Review Center</h2></div>
+      <div class="filters"><label>Okres <select id="r_hours"><option value="">cała historia</option><option value="1">1 h</option><option value="24">24 h</option></select></label>
+      <label>Symbol <select id="r_symbol"><option value="">wszystkie</option></select></label>
+      <label>Kierunek <select id="r_side"><option value="">oba</option><option>BUY</option><option>SELL</option></select></label></div></div>
+    <div id="review-box"></div>
+  </section>
+
+  <section class="card" aria-label="Zdarzenia"><div class="card-heading"><h2>Dziennik zdarzeń</h2></div><ul id="events" class="events"></ul></section>
+  <footer><span><strong>ASTRALJET</strong> / Trade Workspace v<span id="ver"></span></span><span>Wszystkie dane SYMULOWANE. Brak połączenia z MT5, DEMO i LIVE. Czasy UTC.</span></footer>
+</main>
+</body></html>

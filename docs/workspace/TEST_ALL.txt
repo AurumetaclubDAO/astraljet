@@ -1,0 +1,130 @@
+# Pełny zestaw, 2026-11-16T04:15Z, Python 3.12.16, izolowana kopia, unittest. 8 błędów importu = brak pytest/httpx/pydantic w dostępnym Pythonie (stan sprzed zmian).
+EEEE....................................EEEE........................................................................................................................................................................................................................................
+======================================================================
+ERROR: tests.alpaca_challenge.test_fail_closed (unittest.loader._FailedTest.tests.alpaca_challenge.test_fail_closed)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: tests.alpaca_challenge.test_fail_closed
+Traceback (most recent call last):
+  File "<python-3.12>\Lib\unittest\loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<python-3.12>\Lib\unittest\loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "<izolowana-kopia>\tests\alpaca_challenge\test_fail_closed.py", line 4, in <module>
+    import httpx
+ModuleNotFoundError: No module named 'httpx'
+
+
+======================================================================
+ERROR: tests.alpaca_challenge.test_lifecycle (unittest.loader._FailedTest.tests.alpaca_challenge.test_lifecycle)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: tests.alpaca_challenge.test_lifecycle
+Traceback (most recent call last):
+  File "<python-3.12>\Lib\unittest\loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<python-3.12>\Lib\unittest\loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "<izolowana-kopia>\tests\alpaca_challenge\test_lifecycle.py", line 2, in <module>
+    import pytest
+ModuleNotFoundError: No module named 'pytest'
+
+
+======================================================================
+ERROR: tests.alpaca_challenge.test_native_stops (unittest.loader._FailedTest.tests.alpaca_challenge.test_native_stops)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: tests.alpaca_challenge.test_native_stops
+Traceback (most recent call last):
+  File "<python-3.12>\Lib\unittest\loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<python-3.12>\Lib\unittest\loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "<izolowana-kopia>\tests\alpaca_challenge\test_native_stops.py", line 2, in <module>
+    import pytest
+ModuleNotFoundError: No module named 'pytest'
+
+
+======================================================================
+ERROR: tests.alpaca_challenge.test_safety (unittest.loader._FailedTest.tests.alpaca_challenge.test_safety)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: tests.alpaca_challenge.test_safety
+Traceback (most recent call last):
+  File "<python-3.12>\Lib\unittest\loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<python-3.12>\Lib\unittest\loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "<izolowana-kopia>\tests\alpaca_challenge\test_safety.py", line 3, in <module>
+    import httpx
+ModuleNotFoundError: No module named 'httpx'
+
+
+======================================================================
+ERROR: tests.dashboard.test_collectors (unittest.loader._FailedTest.tests.dashboard.test_collectors)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: tests.dashboard.test_collectors
+Traceback (most recent call last):
+  File "<python-3.12>\Lib\unittest\loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<python-3.12>\Lib\unittest\loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "<izolowana-kopia>\tests\dashboard\test_collectors.py", line 7, in <module>
+    import pytest
+ModuleNotFoundError: No module named 'pytest'
+
+
+======================================================================
+ERROR: tests.dashboard.test_new_bots (unittest.loader._FailedTest.tests.dashboard.test_new_bots)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: tests.dashboard.test_new_bots
+Traceback (most recent call last):
+  File "<python-3.12>\Lib\unittest\loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<python-3.12>\Lib\unittest\loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "<izolowana-kopia>\tests\dashboard\test_new_bots.py", line 6, in <module>
+    from astraljet.dashboard.collectors.files import signal, runner_state
+  File "<izolowana-kopia>\src\astraljet\dashboard\collectors\files.py", line 9, in <module>
+    from ..models import datum, missing, parse_time, utcnow
+  File "<izolowana-kopia>\src\astraljet\dashboard\models\__init__.py", line 3, in <module>
+    from pydantic import BaseModel, ConfigDict
+ModuleNotFoundError: No module named 'pydantic'
+
+
+======================================================================
+ERROR: tests.dashboard.test_publisher (unittest.loader._FailedTest.tests.dashboard.test_publisher)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: tests.dashboard.test_publisher
+Traceback (most recent call last):
+  File "<python-3.12>\Lib\unittest\loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<python-3.12>\Lib\unittest\loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "<izolowana-kopia>\tests\dashboard\test_publisher.py", line 5, in <module>
+    import pytest
+ModuleNotFoundError: No module named 'pytest'
+
+
+======================================================================
+ERROR: tests.dashboard.test_safety (unittest.loader._FailedTest.tests.dashboard.test_safety)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: tests.dashboard.test_safety
+Traceback (most recent call last):
+  File "<python-3.12>\Lib\unittest\loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<python-3.12>\Lib\unittest\loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "<izolowana-kopia>\tests\dashboard\test_safety.py", line 8, in <module>
+    import pytest
+ModuleNotFoundError: No module named 'pytest'
+
+
+----------------------------------------------------------------------
+Ran 276 tests in 11.510s
+
+FAILED (errors=8)

@@ -30,6 +30,40 @@ def _iso(value: datetime) -> str:
     return _utc(value).isoformat().replace("+00:00", "Z")
 
 
+GROSS_LIMIT_KEY = "max_gross_exposure"
+
+
+def gross_exposure_limit(limits: dict[str, object]) -> Decimal | None:
+    """Opcjonalny limit łącznej ekspozycji brutto; brak klucza = brak limitu (zachowanie jak dotąd).
+
+    Wartość obecna, ale nieliczbowa, nieskończona, zerowa lub ujemna podnosi ValueError.
+    """
+    if GROSS_LIMIT_KEY not in limits:
+        return None
+    raw = limits[GROSS_LIMIT_KEY]
+    if isinstance(raw, bool):
+        raise ValueError("limit logiczny")
+    try:
+        value = Decimal(str(raw))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValueError("limit nieliczbowy") from exc
+    if not value.is_finite() or value <= 0:
+        raise ValueError("limit niedodatni lub nieskończony")
+    return value
+
+
+def mark_price(marks: dict[str, object], instrument: str) -> Decimal | None:
+    """Cena wyceny pozycji z kontekstu; brak lub wartość niepoprawna zwraca None (bez domysłu)."""
+    raw = marks.get(instrument)
+    if raw is None or isinstance(raw, bool):
+        return None
+    try:
+        value = Decimal(str(raw))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    return value if value.is_finite() and value > 0 else None
+
+
 def _blocked(message: str, code: str, action: str) -> DomainBlockedError:
     return DomainBlockedError(
         message,
@@ -300,6 +334,10 @@ class ExecutorGuard:
             or max_quantity <= 0
         ):
             raise deny("Limity mandatu są niepoprawne.", "invalid_limits", "Uzupełnij mandat.")
+        try:
+            gross_exposure_limit(mandate.limits)
+        except ValueError as exc:
+            raise deny("Limit łącznej ekspozycji mandatu jest niepoprawny.", "invalid_limits", "Uzupełnij mandat.") from exc
         if intent.quantity * intent.reference_price > max_notional or intent.quantity > max_quantity:
             raise deny("ORDER-INTENT przekracza limity mandatu.", "limit_exceeded", "Zmniejsz intencję.")
 

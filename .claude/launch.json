@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "astra-workspace-sim",
+      "runtimeExecutable": "C:\\Users\\karol\\tools\\python\\cpython-3.12-windows-x86_64-none\\python.exe",
+      "runtimeArgs": ["-c", "import sys; sys.path.insert(0, 'src'); sys.dont_write_bytecode=True; from astraljet.workspace.server import main; main()"],
+      "port": 8878
+    }
+  ]
+}
