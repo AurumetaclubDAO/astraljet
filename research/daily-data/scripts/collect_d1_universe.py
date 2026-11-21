@@ -239,6 +239,14 @@ def parse_symbols(text: str) -> tuple[str, ...]:
 PAPER_OUT = ROOT / "data" / "paper_seria2"
 
 
+def _shown(path: Path) -> str:
+    """Ścieżka względem repozytorium (bez ścieżki użytkownika), gdy się da."""
+    try:
+        return Path(path).resolve().relative_to(ROOT.parents[1].resolve()).as_posix()
+    except ValueError:
+        return Path(path).name
+
+
 def resolve_out(symbols, wyjscie: str | None) -> Path:
     """Katalog wyjściowy. Odczyt częściowy nie może pisać do data/uniwersum/ (wejście testu serii 2)."""
     partial = tuple(symbols) != tuple(UNIVERSE)
@@ -263,7 +271,7 @@ def report(metas, skipped, failures, mw_before, mw_after, offset_h, maxbars, rea
          f"- Odczyt: {read_at} UTC, skrypt `research/daily-data/scripts/collect_d1_universe.py` (tylko odczyt).",
          f"- Źródło: {terminal}.",
          f"- Handel automatyczny w terminalu (przycisk Algo Trading) w chwili odczytu: {algo}.",
-         "- Pliki danych: `research/daily-data/data/uniwersum/` (pomijane przez Git).",
+         f"- Pliki danych: `{_shown(OUT)}/` (pomijane przez Git).",
          f"- Symboli na liście: {listed}; pobrano: {len(metas)}; pominięto (poza Market Watch lub brak u brokera): {len(skipped)}; błędy: {len(failures)}.",
          f"- Symbole w Market Watch przed odczytem: {mw_before}, po odczycie: {mw_after}"
          + (" (bez zmian)." if mw_before == mw_after else " — **ZMIANA, sprawdzić**."),
