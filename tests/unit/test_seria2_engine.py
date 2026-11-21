@@ -255,6 +255,28 @@ def write_symbol(folder: Path, symbol: str, *, path: str, swap=(-6.0, 2.0, 5), b
     (folder / f'{symbol}_D1.meta.json').write_text(json.dumps(meta), encoding='utf-8')
 
 
+class StartDay(unittest.TestCase):
+    """Start w wybranym dniu: rachunek zaczyna od gotówki, historia sprzed startu służy tylko decyzjom (paper)."""
+
+    def test_no_rows_or_trades_before_start(self):
+        result = s2.simulate_account(basket(), hypothesis='H5', start='2023-09-15')
+        self.assertEqual(result.rows[0], ('2023-09-15', 2500.0))
+        self.assertTrue(result.trades)
+        self.assertTrue(all(t.date > '2023-09-15' for t in result.trades))
+
+    def test_start_on_first_day_changes_nothing(self):
+        first = days()[0]
+        self.assertEqual(s2.simulate_account(basket(), hypothesis='H4', start=first).rows,
+                         s2.simulate_account(basket(), hypothesis='H4').rows)
+
+    def test_later_start_still_uses_full_history_for_decisions(self):
+        late = s2.simulate_account(basket(), hypothesis='H5', start='2023-09-15')
+        full = s2.simulate_account(basket(), hypothesis='H5')
+        first_late = late.trades[0]
+        same_day = [t for t in full.trades if t.date == first_late.date and t.market == first_late.market]
+        self.assertTrue(same_day, 'pierwsza decyzja po starcie powinna wskazać te same rynki co bez startu')
+
+
 class LoadingMarketData(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

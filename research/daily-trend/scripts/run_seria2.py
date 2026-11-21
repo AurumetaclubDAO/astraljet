@@ -149,8 +149,13 @@ def decide_targets(histories: dict[str, list[float]], *, hypothesis: str, gross:
 
 
 def simulate_account(markets: dict[str, Market], *, hypothesis: str, capital: float = 2500.0, gross: float = 1.0,
-                     lookback: int = 252, vol_window: int = 60, scenario: str = 'base', delay: int = 0) -> Result:
-    """Rachunek w USD: decyzja na koniec miesiąca, wykonanie na otwarciu następnej świecy rynku, wolumeny w lotach."""
+                     lookback: int = 252, vol_window: int = 60, scenario: str = 'base', delay: int = 0,
+                     start: str | None = None) -> Result:
+    """Rachunek w USD: decyzja na koniec miesiąca, wykonanie na otwarciu następnej świecy rynku, wolumeny w lotach.
+
+    `start`: rachunek zaczyna od samej gotówki w tym dniu; świece sprzed startu służą tylko decyzjom.
+    Tak liczy paper, więc porównanie paper z backtestem jest jeden do jednego. Bez `start` wynik się nie zmienia.
+    """
     if gross > 1:
         raise ValueError('Łączna ekspozycja powyżej 1 oznacza handel z użyciem dźwigni; '
                          'funkcja wielkości pozycji jej nie dopuszcza.')
@@ -181,6 +186,8 @@ def simulate_account(markets: dict[str, Market], *, hypothesis: str, capital: fl
             if i is not None:
                 index[n] = i
                 has_bar.add(n)
+        if start is not None and day < start:
+            continue  # przed startem rachunku tylko śledzimy położenie w danych
         ready = []
         for n in list(pending):
             if n in has_bar:
