@@ -92,17 +92,29 @@ def running_terminal_paths() -> list[str]:
 EXIT_ALGO_TRADING = 4  # handel automatyczny w terminalu nie jest na pewno wyłączony
 
 
-def algo_trading_refusal(terminal_info) -> str | None:
-    """None tylko gdy terminal_info().trade_allowed jest dokładnie False (przycisk Algo Trading wyłączony).
+ALGO_FLAG = "--algo-trading-dozwolone"
+ALGO_CONSENT = "odczyt mimo włączonego Algo Trading na podstawie zgody Karola z 21.11.2026"
 
-    Warunek Karola z 20.11.2026: odczyt wyłącznie przy wyłączonym Algo Trading. True albo brak danych = odmowa.
+
+def algo_trading_refusal(terminal_info, allow_algo: bool = False) -> str | None:
+    """None, gdy wolno czytać; inaczej powód odmowy.
+
+    Domyślnie (warunek Karola z 20.11.2026) tylko przy trade_allowed dokładnie False.
+    Z allow_algo (flaga --algo-trading-dozwolone, zgoda Karola z 21.11.2026) także przy True.
+    Stan nieznany to zawsze odmowa. Flaga nie zmienia listy dozwolonych wywołań.
     """
     value = getattr(terminal_info, "trade_allowed", None)
-    if value is False:
+    if value is False or (value is True and allow_algo):
         return None
     if value is True:
-        return "handel automatyczny (Algo Trading) jest włączony w terminalu"
+        return f"handel automatyczny (Algo Trading) jest włączony w terminalu (bez flagi {ALGO_FLAG})"
     return f"stan Algo Trading nieznany (trade_allowed={value!r})"
+
+
+def algo_text(algo_trading) -> str:
+    if algo_trading is True:
+        return f"włączony — {ALGO_CONSENT} ({ALGO_FLAG})"
+    return {False: "wyłączony"}.get(algo_trading, "nieznany")
 
 
 def check_terminal(path: str | None, running: list[str]) -> str:
@@ -217,7 +229,7 @@ def unusual(meta: dict) -> list[str]:
 
 def report(metas, skipped, failures, mw_before, mw_after, offset_h, maxbars, read_at, terminal="nieznany",
            algo_trading=None) -> str:
-    algo = {True: "włączony", False: "wyłączony"}.get(algo_trading, "nieznany")
+    algo = algo_text(algo_trading)
     L = ["# Dane D1 — uniwersum kandydatów do serii 2", "",
          f"- Odczyt: {read_at} UTC, skrypt `research/daily-data/scripts/collect_d1_universe.py` (tylko odczyt).",
          f"- Źródło: {terminal}.",
@@ -251,7 +263,7 @@ def report(metas, skipped, failures, mw_before, mw_after, offset_h, maxbars, rea
     return "\n".join(L) + "\n"
 
 
-def run(symbols=UNIVERSE) -> int:
+def run(symbols=UNIVERSE, allow_algo: bool = False) -> int:
     import MetaTrader5 as raw_mt5  # tylko w środowisku research/scalp-smc/.venv
     mt5 = StrictReadOnlyMT5(raw_mt5)
     term = os.environ.get("MT5_TERMINAL")
@@ -266,14 +278,15 @@ def run(symbols=UNIVERSE) -> int:
         return 2
     try:
         ti = mt5.terminal_info()
-        refusal = algo_trading_refusal(ti)
+        refusal = algo_trading_refusal(ti, allow_algo)
     except Exception as exc:
         ti, refusal = None, f"nie udało się odczytać terminal_info ({exc!r})"
     if refusal:
         log(f"odmowa odczytu: {refusal}")
         mt5.shutdown()
         return EXIT_ALGO_TRADING
-    algo_trading = False
+    algo_trading = ti.trade_allowed
+    log(f"Algo Trading: {algo_text(algo_trading)}")
     read_at = dt.datetime.now(UTC).isoformat(timespec="seconds")
     metas, skipped, failures = [], [], []
     try:
@@ -378,13 +391,19 @@ def selftest() -> int:
     m2 = build_meta("SPY", si, None, rows, [], csv_bytes(rows), 1, "x", "terminal danych (test)")
     assert m2["terminal"] == "terminal danych (test)"
     assert "- Źródło: terminal danych (test)." in report([m2], [], [], 1, 1, 2, 100000, "x", m2["terminal"])
-    assert "w chwili odczytu: włączony." in report([m2], [], [], 1, 1, 2, 100000, "x", "t", True)
+    assert "w chwili odczytu: włączony — odczyt mimo włączonego Algo Trading na podstawie zgody Karola z 21.11.2026" \
+        in report([m2], [], [], 1, 1, 2, 100000, "x", "t", True)
     assert "w chwili odczytu: wyłączony." in report([m2], [], [], 1, 1, 2, 100000, "x", "t", False)
     assert "w chwili odczytu: nieznany." in report([m2], [], [], 1, 1, 2, 100000, "x", "t")
 
     assert algo_trading_refusal(NS(trade_allowed=False)) is None
     for ti in (NS(trade_allowed=True), NS(), None, NS(trade_allowed=0), NS(trade_allowed=None)):
         assert algo_trading_refusal(ti), f"algo_trading_refusal przepuścił {ti!r}"
+    # Flaga --algo-trading-dozwolone: przepuszcza True, ale nie stan nieznany.
+    assert algo_trading_refusal(NS(trade_allowed=True), True) is None
+    assert algo_trading_refusal(NS(trade_allowed=False), True) is None
+    for ti in (NS(), None, NS(trade_allowed=0), NS(trade_allowed=None), NS(trade_allowed=1)):
+        assert algo_trading_refusal(ti, True), f"flaga przepuściła {ti!r}"
 
     class FakeTerminal:  # run(): odmowa przy włączonym Algo, shutdown i żadnego pobierania
         TIMEFRAME_D1 = 16408
@@ -398,12 +417,22 @@ def selftest() -> int:
 
             def f(*a, **k):
                 calls.append(name)
-                return NS(trade_allowed=allowed, maxbars=1000) if name == "terminal_info" else True
+                if name == "terminal_info":
+                    return NS(trade_allowed=allowed, maxbars=1000)
+                if name == "symbols_get":
+                    return []
+                return None if name in ("symbol_info_tick", "symbol_info") else True
             return f
 
+    import tempfile
     import types
-    _log = globals()["log"]
-    for allowed in (True, None):
+    _log, _out, _reports = globals()["log"], globals()["OUT"], globals()["REPORTS"]
+    # (trade_allowed, flaga, oczekiwany kod, oczekiwane wywołania)
+    cases = ((True, False, EXIT_ALGO_TRADING, ["initialize", "terminal_info", "shutdown"]),
+             (None, False, EXIT_ALGO_TRADING, ["initialize", "terminal_info", "shutdown"]),
+             (None, True, EXIT_ALGO_TRADING, ["initialize", "terminal_info", "shutdown"]),
+             (True, True, 1, None))
+    for allowed, flag, code, expected_calls in cases:
         fake = FakeTerminal(allowed)
         saved = (sys.modules.get("MetaTrader5"), os.environ.get("MT5_TERMINAL"), globals()["running_terminal_paths"])
         sys.modules["MetaTrader5"] = types.SimpleNamespace(**{n: getattr(fake, n) for n in ALLOWED},
@@ -411,9 +440,17 @@ def selftest() -> int:
         os.environ["MT5_TERMINAL"] = data_exe
         globals()["running_terminal_paths"] = lambda: [data_exe]
         globals()["log"] = lambda msg: None
+        tmp = Path(tempfile.mkdtemp(prefix="d1_selftest_"))
+        globals()["OUT"], globals()["REPORTS"] = tmp / "out", tmp / "reports"
         try:
-            assert run() == EXIT_ALGO_TRADING
+            assert run(symbols=(), allow_algo=flag) == code, (allowed, flag)
+            if code != EXIT_ALGO_TRADING:  # z flagą przy włączonym Algo: raport mówi o zgodzie
+                txt = (tmp / "reports" / "DANE_D1_UNIWERSUM.md").read_text(encoding="utf-8")
+                assert ALGO_CONSENT in txt and ALGO_FLAG in txt
+                assert "shutdown" in fake.calls and not any(c.startswith(("order", "position", "history"))
+                                                            for c in fake.calls)
         finally:
+            globals()["OUT"], globals()["REPORTS"] = _out, _reports
             if saved[0] is None:
                 sys.modules.pop("MetaTrader5", None)
             else:
@@ -424,7 +461,8 @@ def selftest() -> int:
                 os.environ["MT5_TERMINAL"] = saved[1]
             globals()["running_terminal_paths"] = saved[2]
             globals()["log"] = _log
-        assert fake.calls == ["initialize", "terminal_info", "shutdown"], fake.calls
+        if expected_calls is not None:
+            assert fake.calls == expected_calls, fake.calls
     print("selftest OK")
     return 0
 
@@ -432,8 +470,11 @@ def selftest() -> int:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--selftest", action="store_true", help="testy bez połączenia z terminalem")
+    ap.add_argument(ALGO_FLAG, dest="allow_algo", action="store_true",
+                    help="czytaj także przy włączonym Algo Trading (zgoda Karola z 21.11.2026); "
+                         "lista dozwolonych wywołań bez zmian")
     a = ap.parse_args()
-    return selftest() if a.selftest else run()
+    return selftest() if a.selftest else run(allow_algo=a.allow_algo)
 
 
 if __name__ == "__main__":
