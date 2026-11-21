@@ -20,6 +20,7 @@ Przebieg (zatrzymanie na pierwszym nieoczekiwanym wyniku, bez pętli ponowień):
   7. Przerwane uzgodnienie: symulowany błąd połączenia przy order_send (nic nie idzie do brokera)
      zostawia stan uncertain; nowe zlecenie jest blokowane; uzgodnienie stwierdza brak deala.
 Baza próby (trwała, z wyłącznikiem awaryjnym): .runtime/demo-probe/state/
+Jedna instancja naraz: .runtime/demo-probe/PROBA_TRWA.lock (drugie uruchomienie odmawia przed bazą i terminalem).
 Raport bez numeru rachunku, salda i serwera: .runtime/demo-probe/<czas>/RAPORT_PROBY.md
 
 Wykrycie rachunku innego niż DEMO: rozłączenie, wyłącznik awaryjny w bazie próby i trwały znacznik
@@ -77,6 +78,28 @@ MAX_PROBE_NOTIONAL = Decimal("200")  # górna granica wartości jednej pozycji p
 SEND_FLAG = "--wyslij-na-demo"
 # Trwały znacznik po wykryciu rachunku innego niż DEMO; dopóki istnieje, skrypt odmawia przed initialize().
 LIVE_MARKER = PROBE_DIR / "STOP_RACHUNEK_INNY_NIZ_DEMO.txt"
+# Jedna instancja naraz: plik tworzony atomowo (O_CREAT | O_EXCL) przed bazą i terminalem, usuwany w finally.
+RUN_LOCK = PROBE_DIR / "PROBA_TRWA.lock"
+
+
+def acquire_run_lock(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        raise ProbeStop(f"Trwa inny przebieg próby ({path.name}). Poczekaj na jego koniec; jeśli żaden nie działa "
+                        "(np. po awarii), plik usuwa ręcznie Karol.") from None
+    try:
+        os.write(fd, f"pid {os.getpid()}, start {datetime.now(timezone.utc):%Y-%m-%d %H:%M:%S} UTC\n".encode("ascii"))
+    finally:
+        os.close(fd)
+
+
+def release_run_lock(path: Path) -> None:
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
 
 
 def write_live_marker(path: Path | None, stage: str) -> None:
@@ -100,6 +123,7 @@ class Report:
     closed: bool = False  # pozycja próby potwierdzona jako zamknięta (krok 6)
     warning: str | None = None  # ostrzeżenie po przerwanym przebiegu z wysłanym zleceniem
     partial: bool = False  # wynik order_send 10010 (wykonanie częściowe)
+    account_verified: bool = False  # krok 0 potwierdził rachunek DEMO
 
     def step(self, name: str, result: str) -> None:
         stamp = datetime.now(timezone.utc).strftime("%H:%M:%S.%f")[:-3]
@@ -277,6 +301,7 @@ def _steps(report, counting, guard, adapter, keys, run_id, start, send, now_fn, 
         expect("0. rachunek DEMO", False, "terminal nie jest na rachunku DEMO - rozłączono, wyłącznik awaryjny włączony")
     health = adapter.health(type("M", (), {"environment": ExecutionEnvironment.BROKER_DEMO, "account_id": LABEL})())
     expect("0. rachunek DEMO i Algo Trading", health.state is ExecutionResultState.ACCEPTED, health.message)
+    report.account_verified = True
     info, tick = ro.symbol_info(SYMBOL), ro.symbol_info_tick(SYMBOL)
     expect("0. symbol w Market Watch", info is not None and bool(info.visible) and tick is not None,
            "dostępny" if info is not None and info.visible else f"Dodaj {SYMBOL} ręcznie do Market Watch konta DEMO")
@@ -409,7 +434,8 @@ def write_report(report: Report, path: Path, error: str | None, send: bool) -> N
     head = ["# Próba drogi zleceń na koncie DEMO", "",
             f"- Uruchomienie: {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC, `scripts/demo_order_probe.py`"
             + (f" {SEND_FLAG}." if send else " (bez brokera)."),
-            "- Rachunek: DEMO (numer i serwer sprawdzone z lokalnym plikiem; nie są tu zapisane).",
+            ("- Rachunek: DEMO (numer i serwer sprawdzone z lokalnym plikiem; nie są tu zapisane)."
+             if report.account_verified else "- Rachunek: nie sprawdzono (przebieg zatrzymany przed sprawdzeniem w kroku 0)."),
             f"- Wysłane zlecenia: {report.sent}.",
             f"- Wynik: {'ZATRZYMANO - ' + error if error else 'wszystkie kroki zgodnie z oczekiwaniem'}."]
     if report.warning:
@@ -423,19 +449,21 @@ def write_report(report: Report, path: Path, error: str | None, send: bool) -> N
     path.write_text("\n".join(head + body) + "\n", encoding="utf-8")
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument(SEND_FLAG, dest="send", action="store_true",
                     help="wyślij dwa zlecenia na konto DEMO (bez flagi: tylko część bez brokera)")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
     try:
         sys.stdout.reconfigure(errors="replace")
     except Exception:  # noqa: BLE001
         pass
-    out_dir = PROBE_DIR / datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    out_dir = PROBE_DIR / f"{datetime.now(timezone.utc):%Y%m%d-%H%M%S}-{os.getpid()}"
     out_dir.mkdir(parents=True, exist_ok=True)
-    report, error, sdk = Report(), None, None
+    report, error, sdk, lock_held = Report(), None, None, False
     try:
+        acquire_run_lock(RUN_LOCK)  # przed bazą próby i terminalem
+        lock_held = True
         if LIVE_MARKER.exists():
             raise ProbeStop(f"Wcześniej wykryto rachunek inny niż DEMO: {LIVE_MARKER}. Zdejmuje go tylko Karol, ręcznie.")
         rule = load_rule()
@@ -461,7 +489,12 @@ def main() -> int:
         if sdk is not None:
             sdk.shutdown()
         write_report(report, out_dir / "RAPORT_PROBY.md", error, args.send)
-        print(f"Raport: {out_dir / 'RAPORT_PROBY.md'}")
+        if lock_held:
+            release_run_lock(RUN_LOCK)
+        try:
+            print(f"Raport: {out_dir / 'RAPORT_PROBY.md'}")
+        except Exception:  # noqa: BLE001
+            pass
     return 1 if error else 0
 
 

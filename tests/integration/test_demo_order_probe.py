@@ -242,3 +242,50 @@ class FailureAfterSendIsReported(unittest.TestCase):
         self.assertIsNone(report.warning)
         self.assertEqual(2, report.sent)
         self.assertTrue(report.closed)
+
+
+class SingleInstanceAndHeader(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.dir = Path(self.tmp.name)
+        saved = {k: getattr(probe, k) for k in ("PROBE_DIR", "STATE_DIR", "LIVE_MARKER", "RUN_LOCK")}
+        self.addCleanup(lambda: [setattr(probe, k, v) for k, v in saved.items()])
+        probe.PROBE_DIR = self.dir
+        probe.STATE_DIR = self.dir / "state"
+        probe.LIVE_MARKER = self.dir / "STOP.txt"
+        probe.RUN_LOCK = self.dir / "PROBA_TRWA.lock"
+
+    def reports(self):
+        return [p.read_text(encoding="utf-8") for p in self.dir.glob("*/RAPORT_PROBY.md")]
+
+    def test_second_lock_is_refused_until_release(self) -> None:
+        probe.acquire_run_lock(probe.RUN_LOCK)
+        with self.assertRaises(probe.ProbeStop):
+            probe.acquire_run_lock(probe.RUN_LOCK)
+        probe.release_run_lock(probe.RUN_LOCK)
+        probe.acquire_run_lock(probe.RUN_LOCK)
+        probe.release_run_lock(probe.RUN_LOCK)
+
+    def test_main_refuses_while_other_run_holds_lock(self) -> None:
+        probe.acquire_run_lock(probe.RUN_LOCK)  # „pierwszy przebieg” trwa
+        self.assertEqual(1, probe.main(["--wyslij-na-demo"]))
+        self.assertTrue(probe.RUN_LOCK.exists())  # cudzej blokady nie zdejmuje
+        self.assertFalse(probe.STATE_DIR.exists())  # baza próby nie została otwarta
+        (text,) = self.reports()
+        self.assertIn("Trwa inny przebieg", text)
+        self.assertIn("Wysłane zlecenia: 0.", text)
+        self.assertIn("Rachunek: nie sprawdzono", text)
+
+    def test_lock_is_released_after_early_stop(self) -> None:
+        probe.LIVE_MARKER.write_text("x", encoding="utf-8")
+        self.assertEqual(1, probe.main([]))
+        self.assertFalse(probe.RUN_LOCK.exists())
+        self.assertIn("rachunek inny niż DEMO", self.reports()[0])
+
+    def test_header_mentions_account_only_after_step_0(self) -> None:
+        report = probe.run_probe(FakeMT5(), RULE, self.dir / "state2")
+        self.assertTrue(report.account_verified)
+        out = self.dir / "ok.md"
+        probe.write_report(report, out, None, False)
+        self.assertIn("Rachunek: DEMO (numer i serwer sprawdzone", out.read_text(encoding="utf-8"))
