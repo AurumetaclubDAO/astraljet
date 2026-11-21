@@ -50,6 +50,12 @@ class PaperCase(unittest.TestCase):
     def gate(self, hyp: str):
         return paper.PaperGate(self.db, paper.ENVIRONMENTS[hyp], hyp, self.now)
 
+    def gate_for(self, hyp: str, tag: str):
+        """Osobna baza wykonawcy na każdy przebieg w jednym teście (te same klucze intencji)."""
+        db = Database.from_state_dir(Path(self.tmp.name) / f"state-{hyp}-{tag}")
+        db.initialize()
+        return paper.PaperGate(db, paper.ENVIRONMENTS[hyp], hyp, self.now)
+
     def fresh_state(self, hyp: str, start: str) -> paper.PaperState:
         return paper.PaperState.new(hyp, 2500.0, 1.0, start)
 
@@ -76,9 +82,27 @@ class SameAsBacktest(PaperCase):
                                  {n: round(v, 9) for n, v in state.volume.items() if v})
                 rows = paper.compare_with_backtest(state, markets)
                 self.assertTrue(rows)
-                self.assertTrue(all(r["comparable"] and abs(r["diff_pp"]) < 1e-6 for r in rows))
+                self.assertTrue(all(abs(r["diff_pp"]) < 1e-6 and not r["explain"] for r in rows))
                 if hyp == "H4":  # spadki dają pozycje krótkie
                     self.assertTrue(any(v < 0 for v in state.volume.values()))
+
+    def test_paper_started_mid_data_equals_simulate_account_with_start(self) -> None:
+        markets = synthetic()
+        for hyp in ("H4", "H5"):
+            for start in ("2024-03-01", "2024-07-17"):  # początek miesiąca i środek miesiąca
+                with self.subTest(hypothesis=hyp, start=start):
+                    state = self.fresh_state(hyp, start)
+                    paper.advance(state, markets, self.gate_for(hyp, start), NO_BRAKE)
+                    backtest = s2.simulate_account(markets, hypothesis=hyp, capital=2500.0, gross=1.0, start=start)
+                    self.assertEqual(state.rows[0][0], backtest.rows[0][0])
+                    self.assertEqual(len(state.rows), len(backtest.rows) - 1)
+                    for (d1, e1), (d2, e2) in zip(state.rows, backtest.rows):
+                        self.assertEqual(d1, d2)
+                        self.assertAlmostEqual(e1, e2, places=6)
+                    self.assertEqual([], state.refusals)
+                    rows = paper.compare_with_backtest(state, markets)
+                    self.assertTrue(rows)
+                    self.assertTrue(all(abs(r["diff_pp"]) < 1e-6 and not r["explain"] for r in rows))
 
     def test_daily_runs_equal_one_run(self) -> None:
         markets = synthetic(800)
@@ -182,7 +206,7 @@ class RunAndReport(PaperCase):
             self.assertTrue((out / paper.ENVIRONMENTS[hyp] / "state.json").exists())
             self.assertEqual("2023-06-01", st.rows[0][0])
             rows = result["comparisons"][hyp]
-            self.assertTrue(any(not r["comparable"] for r in rows))  # miesiąc startu bez pozycji
+            self.assertTrue(rows and all(abs(r["diff_pp"]) < 1e-6 for r in rows))  # start w środku danych: 1:1
         text = (out / "RAPORT_PAPER_SERIA2.md").read_text(encoding="utf-8")
         self.assertIn("werdykt badania: FAIL", text)
         self.assertIn("| Miesiąc | Paper | Backtest |", text)

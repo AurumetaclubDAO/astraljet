@@ -341,27 +341,23 @@ def monthly_returns(rows: list, capital0: float) -> dict[str, float]:
 
 
 def compare_with_backtest(state: PaperState, markets: dict[str, s2.Market]) -> list[dict]:
-    """Miesiące zakończone w paper, porównane z simulate_account na tych samych plikach (koszt bazowy)."""
+    """Miesiące zakończone w paper, porównane jeden do jednego z simulate_account(start=dzień startu paper)
+    na tych samych plikach (koszt bazowy): oba rachunki zaczynają od samej gotówki w dniu startu."""
     if not state.rows:
         return []
-    backtest = s2.simulate_account(markets, hypothesis=state.hypothesis, capital=state.capital0, gross=state.gross)
-    bt_rows = [[d, e] for d, e in backtest.rows]
-    bt_months = monthly_returns(bt_rows, state.capital0)
+    backtest = s2.simulate_account(markets, hypothesis=state.hypothesis, capital=state.capital0, gross=state.gross,
+                                   start=state.start)
+    bt_months = monthly_returns([[d, e] for d, e in backtest.rows], state.capital0)
     paper = monthly_returns(state.rows, state.capital0)
     calendar = basket_calendar(markets)
     complete = {m for m in paper if any(d[:7] > m for d in calendar)}
-    first_exec = min((t["day"][:7] for t in state.trades), default=None)
-    same_start = state.start <= calendar[0]
     out = []
     for month in sorted(paper):
         if month not in complete or month not in bt_months:
             continue
         diff_pp = (paper[month] - bt_months[month]) * 100
-        # Paper startuje bez pozycji: miesiące przed pierwszym wykonaniem nie mają odpowiednika w backteście.
-        comparable = same_start or (first_exec is not None and month >= first_exec)
         out.append({"month": month, "paper": paper[month], "backtest": bt_months[month], "diff_pp": diff_pp,
-                    "comparable": comparable,
-                    "explain": comparable and abs(diff_pp) > COMPARE_LIMIT_PP})
+                    "explain": abs(diff_pp) > COMPARE_LIMIT_PP})
     return out
 
 
@@ -395,8 +391,7 @@ def write_report(path: Path, states: dict[str, PaperState], comparisons: dict[st
         if rows:
             L += ["", "| Miesiąc | Paper | Backtest | Różnica [pp] | Uwagi |", "|---|---:|---:|---:|---|"]
             for r in rows:
-                note = ("DO WYJAŚNIENIA" if r["explain"] else "") if r["comparable"] else \
-                    "nieporównywalny (paper startuje bez pozycji)"
+                note = "DO WYJAŚNIENIA" if r["explain"] else ""
                 L.append(f"| {r['month']} | {r['paper'] * 100:.2f}% | {r['backtest'] * 100:.2f}% | "
                          f"{r['diff_pp']:+.2f} | {note} |")
     path.parent.mkdir(parents=True, exist_ok=True)

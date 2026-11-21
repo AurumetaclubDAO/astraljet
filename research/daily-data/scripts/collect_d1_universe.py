@@ -236,6 +236,20 @@ def parse_symbols(text: str) -> tuple[str, ...]:
     return picked
 
 
+PAPER_OUT = ROOT / "data" / "paper_seria2"
+
+
+def resolve_out(symbols, wyjscie: str | None) -> Path:
+    """Katalog wyjściowy. Odczyt częściowy nie może pisać do data/uniwersum/ (wejście testu serii 2)."""
+    partial = tuple(symbols) != tuple(UNIVERSE)
+    out = Path(wyjscie).resolve() if wyjscie else ROOT / "data" / "uniwersum"
+    if partial and not wyjscie:
+        raise ValueError("Odczyt częściowy (--symbole) wymaga --wyjscie, np. research/daily-data/data/paper_seria2.")
+    if partial and out == (ROOT / "data" / "uniwersum").resolve():
+        raise ValueError("Odczyt częściowy nie może nadpisać data/uniwersum/ (pliki testu serii 2).")
+    return out
+
+
 def report_path(symbols) -> Path:
     """Pełna lista: raport w reports/ (w Git). Odczyt częściowy (np. dzienny dla paper): obok danych, poza Git."""
     return REPORTS / "DANE_D1_UNIWERSUM.md" if tuple(symbols) == tuple(UNIVERSE) else OUT / "ODCZYT_CZESCIOWY.md"
@@ -488,6 +502,14 @@ def selftest() -> int:
             raise AssertionError(f"parse_symbols przepuścił {bad!r}")
         except ValueError:
             pass
+    for args in ((basket, None), (basket, str(ROOT / "data" / "uniwersum"))):
+        try:
+            resolve_out(*args)
+            raise AssertionError(f"resolve_out przepuścił {args[1]!r} dla odczytu częściowego")
+        except ValueError:
+            pass
+    assert resolve_out(basket, str(PAPER_OUT)) == PAPER_OUT.resolve()
+    assert resolve_out(UNIVERSE, None) == ROOT / "data" / "uniwersum"
     assert report_path(UNIVERSE) == REPORTS / "DANE_D1_UNIWERSUM.md"
     assert report_path(basket).parent == OUT  # odczyt częściowy nie nadpisuje raportu w Git
     assert "- Symboli na liście: 11;" in report([], [], [], 1, 1, 2, 100000, "x", "t", False, listed=11)
@@ -502,11 +524,15 @@ def main() -> int:
                     help="czytaj także przy włączonym Algo Trading (zgoda Karola z 21.11.2026); "
                          "lista dozwolonych wywołań bez zmian")
     ap.add_argument("--symbole", help="tylko te symbole z UNIVERSE, po przecinku (np. koszyk paper serii 2); "
-                                      "raport wtedy poza Git: data/uniwersum/ODCZYT_CZESCIOWY.md")
+                                      "wymaga --wyjscie; raport częściowy w katalogu wyjściowym, poza Git")
+    ap.add_argument("--wyjscie", help="katalog na pliki D1 (dla paper: research/daily-data/data/paper_seria2); "
+                                      "odczyt częściowy nie może pisać do data/uniwersum/")
     a = ap.parse_args()
     if a.selftest:
         return selftest()
+    global OUT
     symbols = parse_symbols(a.symbole) if a.symbole else UNIVERSE
+    OUT = resolve_out(symbols, a.wyjscie)
     return run(symbols, allow_algo=a.allow_algo)
 
 
